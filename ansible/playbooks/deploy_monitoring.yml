@@ -1,0 +1,73 @@
+---
+# deploy_monitoring.yml
+# Deploys kube-prometheus-stack (Prometheus + Grafana + Alertmanager).
+
+- name: Deploy Prometheus + Grafana Monitoring Stack
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create monitoring namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/monitoring.yaml"
+
+    - name: Add prometheus-community Helm repo
+      kubernetes.core.helm_repository:
+        name: prometheus-community
+        repo_url: https://prometheus-community.github.io/helm-charts
+
+    - name: Install kube-prometheus-stack via Helm
+      kubernetes.core.helm:
+        name: kube-prometheus-stack
+        chart_ref: prometheus-community/kube-prometheus-stack
+        release_namespace: monitoring
+        values_files:
+          - "{{ playbook_dir }}/../../kubernetes/prometheus/values.yaml"
+        wait: true
+        timeout: 10m0s
+
+    - name: Apply ServiceMonitor manifests
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ item }}"
+      loop:
+        - "{{ playbook_dir }}/../../kubernetes/prometheus/servicemonitors/awx-monitor.yaml"
+        - "{{ playbook_dir }}/../../kubernetes/prometheus/servicemonitors/gitlab-monitor.yaml"
+        - "{{ playbook_dir }}/../../kubernetes/prometheus/servicemonitors/netbox-monitor.yaml"
+        - "{{ playbook_dir }}/../../kubernetes/prometheus/servicemonitors/node-monitor.yaml"
+
+    - name: Apply Grafana Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/grafana/ingress.yaml"
+
+    - name: Apply Prometheus Ingress
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: prometheus-ingress
+            namespace: monitoring
+            annotations:
+              nginx.ingress.kubernetes.io/auth-type: basic
+          spec:
+            ingressClassName: nginx
+            rules:
+              - host: prometheus.lab.internal
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: kube-prometheus-stack-prometheus
+                          port:
+                            number: 9090

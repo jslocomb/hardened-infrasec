@@ -1,0 +1,23 @@
+# terraform.tfvars.example
+# Copy to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to git.
+
+proxmox_api_url      = "https://192.168.1.100:8006/api2/json"
+proxmox_user         = "terraform@pam"
+proxmox_password     = "CHANGEME"
+proxmox_tls_insecure = true
+proxmox_node         = "pve"
+vm_template          = "rocky9-template"
+
+ssh_public_keys = <<EOF
+ssh-ed25519 AAAAC3Nza... your-key-here
+EOF
+
+gateway    = "192.168.10.1"
+nameserver = "192.168.10.1"
+
+ip_ipa01     = "192.168.10.5"
+ip_k8s_cp01  = "192.168.10.10"
+ip_k8s_w01   = "192.168.10.11"
+ip_k8s_w02   = "192.168.10.12"
+ip_k8s_w03   = "192.168.10.13"

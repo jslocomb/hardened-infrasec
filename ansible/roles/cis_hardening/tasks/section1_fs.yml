@@ -1,0 +1,66 @@
+---
+# CIS Section 1 — Filesystem Configuration
+
+- name: "CIS 1.1.1 | Ensure cramfs is disabled"
+  kernel_module:
+    name: cramfs
+    state: absent
+
+- name: "CIS 1.1.2 | Ensure freevxfs is disabled"
+  kernel_module:
+    name: freevxfs
+    state: absent
+
+- name: "CIS 1.1.3 | Ensure jffs2 is disabled"
+  kernel_module:
+    name: jffs2
+    state: absent
+
+- name: "CIS 1.1.4 | Ensure hfs is disabled"
+  kernel_module:
+    name: hfs
+    state: absent
+
+- name: "CIS 1.1.5 | Ensure hfsplus is disabled"
+  kernel_module:
+    name: hfsplus
+    state: absent
+
+- name: "CIS 1.1.6 | Ensure squashfs is disabled"
+  kernel_module:
+    name: squashfs
+    state: absent
+
+- name: "CIS 1.1.7 | Ensure udf is disabled"
+  kernel_module:
+    name: udf
+    state: absent
+
+- name: "CIS 1.1.8 | Ensure usb-storage is disabled"
+  kernel_module:
+    name: usb-storage
+    state: absent
+
+- name: "CIS 1.3 | Ensure AIDE is installed"
+  dnf:
+    name: aide
+    state: present
+
+- name: "CIS 1.4.1 | Ensure bootloader password is set (grub2 config)"
+  stat:
+    path: /boot/grub2/grub.cfg
+  register: grub_cfg
+
+- name: "CIS 1.5.1 | Ensure core dumps are restricted"
+  sysctl:
+    name: fs.suid_dumpable
+    value: "0"
+    state: present
+    reload: true
+
+- name: "CIS 1.5.2 | Ensure address space layout randomization (ASLR) is enabled"
+  sysctl:
+    name: kernel.randomize_va_space
+    value: "2"
+    state: present
+    reload: true

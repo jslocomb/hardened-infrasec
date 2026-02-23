@@ -1,0 +1,12 @@
+---
+# AWX Operator — install via kustomize
+# Source: https://github.com/ansible/awx-operator
+# Pin to a specific release for reproducibility.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - github.com/ansible/awx-operator/config/default?ref=2.10.0
+namespace: devops
+images:
+  - name: quay.io/ansible/awx-operator
+    newTag: 2.10.0

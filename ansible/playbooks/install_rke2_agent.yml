@@ -1,0 +1,27 @@
+---
+# install_rke2_agent.yml
+# Installs and joins RKE2 worker agents to the cluster.
+
+- name: Install RKE2 Worker Agents
+  hosts: workers
+  become: true
+  gather_facts: true
+  serial: 1  # Join workers one at a time to avoid etcd overload
+
+  pre_tasks:
+    - name: Retrieve node token from control plane
+      set_fact:
+        rke2_token: "{{ hostvars[groups['control_plane'][0]]['rke2_token'] }}"
+
+  roles:
+    - rke2_agent
+
+  post_tasks:
+    - name: Apply node labels
+      command: >
+        kubectl label node {{ inventory_hostname }}
+        {{ item }} --overwrite
+      loop: "{{ node_labels | default([]) }}"
+      delegate_to: "{{ groups['control_plane'][0] }}"
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig

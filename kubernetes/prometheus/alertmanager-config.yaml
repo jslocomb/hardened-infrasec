@@ -1,0 +1,21 @@
+---
+# alertmanager-config.yaml
+# AlertmanagerConfig for custom routing rules.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: lab-alerting
+  namespace: monitoring
+spec:
+  route:
+    groupBy: ['alertname', 'namespace']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+    receiver: splunk-webhook
+  receivers:
+    - name: splunk-webhook
+      webhookConfigs:
+        - url: "http://splunk.logging.svc.cluster.local:8088/services/collector"
+          httpConfig:
+            bearerToken: "CHANGEME"  # Splunk HEC token

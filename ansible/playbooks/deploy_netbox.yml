@@ -1,0 +1,52 @@
+---
+# deploy_netbox.yml
+# Deploys NetBox CMDB with FreeIPA LDAP authentication.
+
+- name: Deploy NetBox
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create netops namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/netops.yaml"
+
+    - name: Add NetBox Helm repo
+      kubernetes.core.helm_repository:
+        name: bootc
+        repo_url: https://charts.boo.tc
+
+    - name: Create NetBox secrets
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: netbox-secrets
+            namespace: netops
+          type: Opaque
+          stringData:
+            secret_key: "{{ vault_netbox_secret_key }}"
+            db_password: "{{ vault_netbox_db_password }}"
+
+    - name: Install NetBox via Helm
+      kubernetes.core.helm:
+        name: netbox
+        chart_ref: bootc/netbox
+        release_namespace: netops
+        values_files:
+          - "{{ playbook_dir }}/../../kubernetes/netbox/values.yaml"
+        wait: true
+        timeout: 10m0s
+
+    - name: Apply NetBox Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/netbox/ingress.yaml"

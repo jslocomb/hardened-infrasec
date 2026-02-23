@@ -1,0 +1,110 @@
+fullnameOverride: kube-prometheus-stack
+
+# ─── Prometheus ───────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 30Gi
+    additionalScrapeConfigs: []
+
+# ─── Alertmanager ─────────────────────────────────────────────────────────────
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: 'null'
+    receivers:
+      - name: 'null'
+
+# ─── Grafana ──────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+  adminPassword: "CHANGEME"  # Override with vault value in playbook
+  persistence:
+    enabled: true
+    storageClassName: longhorn
+    size: 5Gi
+  ingress:
+    enabled: false  # Managed by grafana/ingress.yaml
+  grafana.ini:
+    server:
+      domain: grafana.lab.internal
+      root_url: "https://grafana.lab.internal"
+    auth.ldap:
+      enabled: true
+      config_file: /etc/grafana/ldap.toml
+  ldap:
+    enabled: true
+    config: |
+      [[servers]]
+      host = "ipa01.lab.internal"
+      port = 636
+      use_ssl = true
+      ssl_skip_verify = true
+      bind_dn = "uid=grafana-bind,cn=users,cn=accounts,dc=lab,dc=internal"
+      bind_password = "CHANGEME"
+      search_filter = "(uid=%s)"
+      search_base_dns = ["cn=users,cn=accounts,dc=lab,dc=internal"]
+      [servers.attributes]
+      name = "displayName"
+      surname = "sn"
+      username = "uid"
+      member_of = "memberOf"
+      email = "mail"
+      [[servers.group_mappings]]
+      group_dn = "cn=grafana-admins,cn=groups,cn=accounts,dc=lab,dc=internal"
+      org_role = "Admin"
+      [[servers.group_mappings]]
+      group_dn = "*"
+      org_role = "Viewer"
+
+# ─── Node Exporter ────────────────────────────────────────────────────────────
+nodeExporter:
+  enabled: true
+
+# ─── Kube State Metrics ───────────────────────────────────────────────────────
+kubeStateMetrics:
+  enabled: true
+
+# ─── Default Rules ────────────────────────────────────────────────────────────
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    general: true
+    k8s: true
+    kubeApiserver: true
+    kubePrometheusNodeAlerting: true
+    kubePrometheusNodeRecording: true
+    kubernetesAbsent: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    node: true

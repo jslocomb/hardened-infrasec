@@ -1,0 +1,27 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: splunk-ingress
+  namespace: logging
+  annotations:
+    cert-manager.io/cluster-issuer: freeipa-ca-issuer
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - splunk.lab.internal
+      secretName: splunk-tls
+  rules:
+    - host: splunk.lab.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: splunk-standalone-standalone-service
+                port:
+                  number: 8000

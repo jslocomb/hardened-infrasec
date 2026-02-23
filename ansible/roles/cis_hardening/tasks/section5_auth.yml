@@ -1,0 +1,61 @@
+---
+# CIS Section 5 — Access, Authentication, and Authorization
+
+- name: "CIS 5.1 | Ensure cron daemon is running"
+  service:
+    name: crond
+    state: started
+    enabled: true
+
+- name: "CIS 5.2 | Harden SSH configuration"
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+  loop:
+    - { key: "Protocol",                  value: "2" }
+    - { key: "PermitRootLogin",           value: "no" }
+    - { key: "PasswordAuthentication",    value: "no" }
+    - { key: "PermitEmptyPasswords",      value: "no" }
+    - { key: "X11Forwarding",             value: "no" }
+    - { key: "MaxAuthTries",              value: "4" }
+    - { key: "LoginGraceTime",            value: "60" }
+    - { key: "ClientAliveInterval",       value: "300" }
+    - { key: "ClientAliveCountMax",       value: "0" }
+    - { key: "AllowAgentForwarding",      value: "no" }
+    - { key: "Banner",                    value: "/etc/issue.net" }
+    - { key: "LogLevel",                  value: "VERBOSE" }
+  notify: restart sshd
+
+- name: "CIS 5.3 | Configure login banner"
+  copy:
+    dest: /etc/issue.net
+    content: |
+      ┌─────────────────────────────────────────────────────────┐
+      │              AUTHORIZED USERS ONLY                      │
+      │  Unauthorized access is prohibited and will be logged.  │
+      └─────────────────────────────────────────────────────────┘
+    mode: '0644'
+
+- name: "CIS 5.4 | Set password policies"
+  lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: "^#?{{ item.key }}"
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: "minlen",    value: "14" }
+    - { key: "minclass",  value: "4" }
+    - { key: "maxrepeat", value: "3" }
+    - { key: "dcredit",   value: "-1" }
+    - { key: "ucredit",   value: "-1" }
+    - { key: "ocredit",   value: "-1" }
+    - { key: "lcredit",   value: "-1" }
+
+- name: "CIS 5.5 | Ensure root's PATH integrity — no empty dirs"
+  shell: |
+    echo $PATH | tr ':' '\n' | while read dir; do
+      [ -z "$dir" ] && echo "Empty path component found" && exit 1
+    done
+  changed_when: false
+  failed_when: false

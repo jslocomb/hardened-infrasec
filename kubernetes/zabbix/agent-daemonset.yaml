@@ -1,0 +1,54 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: zabbix-agent
+  namespace: monitoring
+  labels:
+    app: zabbix-agent
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-agent
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: zabbix-agent
+          image: zabbix/zabbix-agent2:alpine-6.4-latest
+          env:
+            - name: ZBX_SERVER_HOST
+              value: "zabbix-zabbix-server.monitoring.svc.cluster.local"
+            - name: ZBX_SERVER_PORT
+              value: "10051"
+            - name: ZBX_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: ZBX_PASSIVE_ALLOW_LIST
+              value: "0.0.0.0/0"
+          ports:
+            - containerPort: 10050
+              hostPort: 10050
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys

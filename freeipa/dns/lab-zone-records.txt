@@ -1,0 +1,27 @@
+# lab-zone-records.txt
+# DNS A records to create in FreeIPA after installation.
+# Apply via: ipa dnsrecord-add lab.internal <name> --a-rec=<ip>
+
+# Infrastructure VMs
+ipa01         A   192.168.10.5
+k8s-cp01      A   192.168.10.10
+k8s-w01       A   192.168.10.11
+k8s-w02       A   192.168.10.12
+k8s-w03       A   192.168.10.13
+
+# Ingress endpoint (MetalLB LoadBalancer IP for ingress-nginx)
+ingress       A   192.168.10.200
+
+# Application FQDNs — all point to ingress controller IP
+awx           A   192.168.10.200
+gitlab        A   192.168.10.200
+grafana       A   192.168.10.200
+prometheus    A   192.168.10.200
+alerts        A   192.168.10.200
+zabbix        A   192.168.10.200
+netbox        A   192.168.10.200
+splunk        A   192.168.10.200
+longhorn      A   192.168.10.200
+
+# Kubernetes internal alias
+kubernetes    CNAME  k8s-cp01.lab.internal.

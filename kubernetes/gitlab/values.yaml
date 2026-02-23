@@ -1,0 +1,69 @@
+global:
+  hosts:
+    domain: lab.internal
+    https: true
+  ingress:
+    class: nginx
+    configureCertmanager: true
+    annotations:
+      cert-manager.io/cluster-issuer: freeipa-ca-issuer
+  ldap:
+    enabled: true
+    servers:
+      main:
+        label: "FreeIPA"
+        host: ipa01.lab.internal
+        port: 636
+        uid: uid
+        bind_dn: uid=gitlab-bind,cn=users,cn=accounts,dc=lab,dc=internal
+        password:
+          secret: gitlab-ldap-secret
+          key: password
+        encryption: simple_tls
+        verify_certificates: false
+        base: cn=users,cn=accounts,dc=lab,dc=internal
+        user_filter: "(memberOf=cn=gitlab-users,cn=groups,cn=accounts,dc=lab,dc=internal)"
+        attributes:
+          username:
+            - uid
+            - userid
+            - sAMAccountName
+          email:
+            - mail
+          name: displayName
+
+gitlab:
+  webservice:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 200m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 3Gi
+
+  gitaly:
+    persistence:
+      storageClass: longhorn
+      size: 20Gi
+
+  postgresql:
+    persistence:
+      storageClass: longhorn
+      size: 10Gi
+
+registry:
+  enabled: true
+  storage:
+    storageClass: longhorn
+    size: 20Gi
+
+nginx-ingress:
+  enabled: false  # Use cluster ingress-nginx
+
+certmanager:
+  install: false  # Already installed at cluster level
+
+prometheus:
+  install: false  # Already installed at cluster level

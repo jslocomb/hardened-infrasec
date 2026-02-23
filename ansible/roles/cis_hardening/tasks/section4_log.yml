@@ -1,0 +1,52 @@
+---
+# CIS Section 4 — Logging and Auditing
+
+- name: "CIS 4.1 | Ensure auditd is installed"
+  dnf:
+    name:
+      - audit
+      - audit-libs
+    state: present
+
+- name: "CIS 4.1 | Ensure auditd service is running"
+  service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: "CIS 4.1.2 | Configure auditd — max log size"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^max_log_file\s*='
+    line: 'max_log_file = 100'
+
+- name: "CIS 4.1.2 | Configure auditd — action on size exceed"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^max_log_file_action\s*='
+    line: 'max_log_file_action = ROTATE'
+
+- name: "CIS 4.1.2 | Configure auditd — space left action"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^space_left_action\s*='
+    line: 'space_left_action = SYSLOG'
+
+- name: "CIS 4.2 | Ensure rsyslog is installed and running"
+  dnf:
+    name: rsyslog
+    state: present
+
+- name: "CIS 4.2 | Ensure rsyslog service is running"
+  service:
+    name: rsyslog
+    state: started
+    enabled: true
+
+- name: "CIS 4.2 | Configure remote syslog to Splunk UF (if deployed)"
+  lineinfile:
+    path: /etc/rsyslog.conf
+    line: "*.* @@{{ splunk_uf_host | default('127.0.0.1') }}:514"
+    state: present
+  notify: restart rsyslog
+  when: splunk_remote_logging | default(false)

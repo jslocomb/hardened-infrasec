@@ -1,0 +1,4 @@
+---
+nfs_required: false
+splunk_remote_logging: false
+splunk_uf_host: "127.0.0.1"

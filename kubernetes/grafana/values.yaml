@@ -1,0 +1,27 @@
+# Grafana is deployed as part of kube-prometheus-stack.
+# These values are merged into prometheus/values.yaml under the grafana: key.
+# This file documents standalone overrides if deploying Grafana separately.
+
+adminPassword: "CHANGEME"
+
+persistence:
+  enabled: true
+  storageClassName: longhorn
+  size: 5Gi
+
+plugins:
+  - grafana-zabbix-app
+  - grafana-splunk-datasource
+  - grafana-piechart-panel
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://kube-prometheus-stack-prometheus:9090
+        isDefault: true
+      - name: Alertmanager
+        type: alertmanager
+        url: http://kube-prometheus-stack-alertmanager:9093

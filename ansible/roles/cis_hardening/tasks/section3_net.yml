@@ -1,0 +1,48 @@
+---
+# CIS Section 3 — Network Configuration
+
+- name: "CIS 3.1.1 | Ensure IP forwarding is enabled (required for K8s)"
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+
+- name: "CIS 3.2.1 | Ensure source routed packets are not accepted"
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: "net.ipv4.conf.all.accept_source_route", value: "0" }
+    - { key: "net.ipv4.conf.default.accept_source_route", value: "0" }
+    - { key: "net.ipv6.conf.all.accept_source_route", value: "0" }
+
+- name: "CIS 3.2.2 | Ensure ICMP redirects are not accepted"
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: "net.ipv4.conf.all.accept_redirects", value: "0" }
+    - { key: "net.ipv4.conf.default.accept_redirects", value: "0" }
+    - { key: "net.ipv6.conf.all.accept_redirects", value: "0" }
+
+- name: "CIS 3.3.1 | Ensure TCP SYN Cookies are enabled"
+  sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: "1"
+    state: present
+    reload: true
+
+- name: "CIS 3.3.2 | Ensure suspicious packets are logged"
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: "net.ipv4.conf.all.log_martians", value: "1" }
+    - { key: "net.ipv4.conf.default.log_martians", value: "1" }

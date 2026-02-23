@@ -1,0 +1,16 @@
+---
+# Variables specific to K8s control plane nodes
+
+rke2_server_config:
+  tls-san:
+    - "k8s-cp01.lab.internal"
+    - "192.168.10.10"
+    - "kubernetes.lab.internal"
+  cni: "canal"
+  profile: "cis-1.23"
+  audit-policy-file: "/etc/rancher/rke2/audit-policy.yaml"
+  kube-apiserver-arg:
+    - "audit-log-path=/var/log/kubernetes/audit.log"
+    - "audit-log-maxage=30"
+    - "audit-log-maxbackup=10"
+    - "audit-log-maxsize=100"

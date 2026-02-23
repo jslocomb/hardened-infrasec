@@ -1,0 +1,43 @@
+# Secrets & credentials
+*.vault.yml
+*.vault.yaml
+*.key
+*.pem
+*.p12
+terraform.tfvars
+!terraform.tfvars.example
+.env
+secrets/
+kubeconfig
+*.kubeconfig
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfplan
+
+# Ansible
+*.retry
+.ansible/
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Helm
+charts/
+*.tgz

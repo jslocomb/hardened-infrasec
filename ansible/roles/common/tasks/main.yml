@@ -1,0 +1,59 @@
+---
+# roles/common/tasks/main.yml
+# Applied to all nodes.
+
+- name: Disable swap immediately
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from /etc/fstab permanently
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1'
+
+- name: Load required kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ k8s_kernel_modules | default(['overlay', 'br_netfilter']) }}"
+
+- name: Persist kernel modules across reboots
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: '0644'
+
+- name: Apply K8s sysctl parameters
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/99-k8s.conf
+    reload: true
+  loop: "{{ k8s_sysctl_params | default({}) | dict2items }}"
+
+- name: Set SELinux to enforcing
+  selinux:
+    policy: targeted
+    state: enforcing
+
+- name: Enable and start firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Install EPEL repository
+  dnf:
+    name: epel-release
+    state: present
+
+- name: Update all packages
+  dnf:
+    name: "*"
+    state: latest
+    update_cache: true
+  notify: reboot if kernel updated

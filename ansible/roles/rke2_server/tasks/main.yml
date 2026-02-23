@@ -1,0 +1,59 @@
+---
+# roles/rke2_server/tasks/main.yml
+
+- name: Create RKE2 config directory
+  file:
+    path: /etc/rancher/rke2
+    state: directory
+    mode: '0755'
+
+- name: Deploy RKE2 server config
+  template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    mode: '0600'
+
+- name: Deploy K8s audit policy
+  copy:
+    dest: /etc/rancher/rke2/audit-policy.yaml
+    content: |
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+          resources:
+            - group: ""
+              resources: ["secrets"]
+        - level: RequestResponse
+          resources:
+            - group: ""
+              resources: ["pods"]
+        - level: None
+          resources:
+            - group: ""
+              resources: ["endpoints", "services", "services/status"]
+          users: ["system:kube-proxy"]
+        - level: Metadata
+    mode: '0600'
+
+- name: Create audit log directory
+  file:
+    path: /var/log/kubernetes
+    state: directory
+    mode: '0700'
+
+- name: Download and install RKE2
+  shell: |
+    curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION="{{ rke2_version }}" sh -
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Enable RKE2 server service
+  service:
+    name: rke2-server
+    enabled: true
+
+- name: Start RKE2 server service
+  service:
+    name: rke2-server
+    state: started

@@ -1,0 +1,77 @@
+---
+# deploy_awx.yml
+# Deploys AWX via the AWX Operator with FreeIPA LDAP auth and GitLab SCM.
+
+- name: Deploy AWX
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create devops namespace (idempotent)
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/devops.yaml"
+
+    - name: Apply AWX Operator
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/awx/awx-operator.yaml"
+
+    - name: Wait for AWX Operator to be ready
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: awx-operator-controller-manager
+        namespace: devops
+      register: awx_operator
+      until: awx_operator.resources[0].status.readyReplicas | default(0) >= 1
+      retries: 30
+      delay: 10
+
+    - name: Create AWX LDAP bind secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: awx-ldap-bind-secret
+            namespace: devops
+          type: Opaque
+          stringData:
+            ldap_bind_password: "{{ vault_awx_ldap_bind_password }}"
+
+    - name: Apply AWX Instance CR
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/awx/awx-instance.yaml"
+
+    - name: Wait for AWX deployment to be ready (may take 10-15 min)
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: awx-web
+        namespace: devops
+      register: awx_deploy
+      until: awx_deploy.resources[0].status.readyReplicas | default(0) >= 1
+      retries: 60
+      delay: 30
+
+    - name: Apply AWX Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/awx/ingress.yaml"
+
+    - name: Retrieve AWX admin password
+      kubernetes.core.k8s_info:
+        kind: Secret
+        name: awx-admin-password
+        namespace: devops
+      register: awx_secret
+
+    - name: Display AWX admin password
+      debug:
+        msg: "AWX admin password: {{ awx_secret.resources[0].data.password | b64decode }}"

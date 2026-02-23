@@ -1,0 +1,8 @@
+---
+rke2_version: v1.28.6+rke2r1
+rke2_server_config:
+  tls-san:
+    - "k8s-cp01.lab.internal"
+    - "192.168.10.10"
+  cni: canal
+  profile: cis-1.23

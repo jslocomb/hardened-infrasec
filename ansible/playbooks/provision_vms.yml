@@ -1,0 +1,81 @@
+---
+# provision_vms.yml
+# Initial VM setup applied to all nodes immediately after Terraform provisioning.
+
+- name: Initial VM provisioning
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Wait for SSH to become available
+      wait_for_connection:
+        delay: 10
+        timeout: 300
+
+    - name: Gather facts
+      setup:
+
+  roles:
+    - common
+
+  tasks:
+    - name: Set hostname from inventory
+      hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Update /etc/hosts with all cluster nodes
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ hostvars[item]['ansible_host'] }} {{ item }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+
+    - name: Install base packages
+      dnf:
+        name: "{{ base_packages }}"
+        state: present
+        update_cache: true
+
+    - name: Set timezone to UTC
+      timezone:
+        name: UTC
+
+    - name: Configure chrony NTP
+      template:
+        src: ../roles/common/templates/chrony.conf.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart chrony
+
+    - name: Enable and start chronyd
+      service:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: Create ansible service account
+      user:
+        name: ansible
+        groups: wheel
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    - name: Configure sudoers for ansible user
+      copy:
+        content: "ansible ALL=(ALL) NOPASSWD:ALL\n"
+        dest: /etc/sudoers.d/ansible
+        mode: '0440'
+        validate: 'visudo -cf %s'
+
+    - name: Configure NetworkManager DNS to point at FreeIPA
+      nmcli:
+        type: ethernet
+        conn_name: "{{ ansible_default_ipv4.interface }}"
+        dns4:
+          - "{{ freeipa_ip }}"
+        state: present
+      when: inventory_hostname != 'ipa01.lab.internal'

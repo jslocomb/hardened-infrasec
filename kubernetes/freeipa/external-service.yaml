@@ -1,0 +1,27 @@
+---
+# ExternalName service so cluster workloads can reference FreeIPA
+# as a stable in-cluster DNS name: freeipa.auth.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: freeipa
+  namespace: auth
+spec:
+  type: ExternalName
+  externalName: ipa01.lab.internal
+  ports:
+    - name: ldap
+      port: 389
+      protocol: TCP
+    - name: ldaps
+      port: 636
+      protocol: TCP
+    - name: kerberos-tcp
+      port: 88
+      protocol: TCP
+    - name: kerberos-udp
+      port: 88
+      protocol: UDP
+    - name: https
+      port: 443
+      protocol: TCP

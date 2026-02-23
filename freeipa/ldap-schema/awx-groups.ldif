@@ -1,0 +1,16 @@
+# awx-groups.ldif
+# Create AWX access groups in FreeIPA.
+
+dn: cn=awx-users,cn=groups,cn=accounts,dc=lab,dc=internal
+changetype: add
+objectClass: groupOfNames
+cn: awx-users
+description: Users allowed to log into AWX
+member: uid=awx-bind,cn=users,cn=accounts,dc=lab,dc=internal
+
+dn: cn=awx-admins,cn=groups,cn=accounts,dc=lab,dc=internal
+changetype: add
+objectClass: groupOfNames
+cn: awx-admins
+description: AWX superuser administrators
+member: uid=awx-bind,cn=users,cn=accounts,dc=lab,dc=internal

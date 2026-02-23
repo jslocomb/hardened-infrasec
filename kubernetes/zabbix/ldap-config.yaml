@@ -1,0 +1,15 @@
+---
+# Zabbix LDAP configuration reference
+# Configure in Zabbix UI: Administration > Authentication > LDAP Settings
+#
+# LDAP Host:     ipa01.lab.internal
+# Port:          636
+# Encryption:    SSL/TLS
+# Base DN:       dc=lab,dc=internal
+# Search attr:   uid
+# Bind DN:       uid=zabbix-bind,cn=users,cn=accounts,dc=lab,dc=internal
+# Bind password: (from vault)
+#
+# FreeIPA groups to create:
+#   cn=zabbix-admins,cn=groups,cn=accounts,dc=lab,dc=internal
+#   cn=zabbix-users,cn=groups,cn=accounts,dc=lab,dc=internal

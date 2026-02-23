@@ -1,0 +1,76 @@
+---
+# Universal Forwarder DaemonSet — ships logs from all nodes to Splunk indexer
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: splunk-universal-forwarder
+  namespace: logging
+  labels:
+    app: splunk-uf
+spec:
+  selector:
+    matchLabels:
+      app: splunk-uf
+  template:
+    metadata:
+      labels:
+        app: splunk-uf
+    spec:
+      tolerations:
+        - operator: Exists
+      hostNetwork: false
+      containers:
+        - name: uf
+          image: splunk/universalforwarder:9.2.0
+          env:
+            - name: SPLUNK_START_ARGS
+              value: "--accept-license"
+            - name: SPLUNK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: splunk-standalone-secret
+                  key: password
+            - name: SPLUNK_DEPLOYMENT_SERVER
+              value: "splunk-standalone-standalone-service.logging.svc.cluster.local:8089"
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: k8s-audit
+              mountPath: /var/log/kubernetes
+              readOnly: true
+            - name: uf-inputs
+              mountPath: /opt/splunkforwarder/etc/system/local
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: k8s-audit
+          hostPath:
+            path: /var/log/kubernetes
+        - name: uf-inputs
+          configMap:
+            name: splunk-uf-inputs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: splunk-uf-inputs
+  namespace: logging
+data:
+  inputs.conf: |
+    [monitor:///var/log/messages]
+    index = os_logs
+    sourcetype = linux_messages_syslog
+
+    [monitor:///var/log/secure]
+    index = os_logs
+    sourcetype = linux_secure
+
+    [monitor:///var/log/audit/audit.log]
+    index = os_logs
+    sourcetype = linux_audit
+
+    [monitor:///var/log/kubernetes/audit.log]
+    index = k8s_audit
+    sourcetype = kube:audit

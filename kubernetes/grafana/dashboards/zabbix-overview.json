@@ -1,0 +1,12 @@
+{
+  "annotations": { "list": [] },
+  "description": "Homelab dashboard placeholder — replace with actual dashboard JSON from grafana.com",
+  "editable": true,
+  "panels": [],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["homelab"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Placeholder Dashboard",
+  "version": 1
+}

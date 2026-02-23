@@ -1,0 +1,50 @@
+---
+# deploy_ingress.yml
+# Deploys ingress-nginx as the cluster ingress controller.
+
+- name: Deploy ingress-nginx
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Add ingress-nginx Helm repo
+      kubernetes.core.helm_repository:
+        name: ingress-nginx
+        repo_url: https://kubernetes.github.io/ingress-nginx
+
+    - name: Install ingress-nginx via Helm
+      kubernetes.core.helm:
+        name: ingress-nginx
+        chart_ref: ingress-nginx/ingress-nginx
+        release_namespace: ingress-nginx
+        create_namespace: true
+        values:
+          controller:
+            service:
+              type: LoadBalancer
+            config:
+              use-forwarded-headers: "true"
+              compute-full-forwarded-for: "true"
+            metrics:
+              enabled: true
+              serviceMonitor:
+                enabled: true
+        wait: true
+        timeout: 5m0s
+
+    - name: Get ingress-nginx LoadBalancer IP
+      kubernetes.core.k8s_info:
+        kind: Service
+        name: ingress-nginx-controller
+        namespace: ingress-nginx
+      register: ingress_svc
+      until: ingress_svc.resources[0].status.loadBalancer.ingress is defined
+      retries: 20
+      delay: 15
+
+    - name: Display ingress IP
+      debug:
+        msg: "ingress-nginx LoadBalancer IP: {{ ingress_svc.resources[0].status.loadBalancer.ingress[0].ip }}"

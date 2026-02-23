@@ -1,0 +1,9 @@
+---
+# roles/cis_hardening/tasks/main.yml
+# CIS Rocky Linux 9 Benchmark — selected controls for K8s nodes.
+
+- import_tasks: section1_fs.yml
+- import_tasks: section2_svcs.yml
+- import_tasks: section3_net.yml
+- import_tasks: section4_log.yml
+- import_tasks: section5_auth.yml

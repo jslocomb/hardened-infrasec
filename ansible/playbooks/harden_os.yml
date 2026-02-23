@@ -1,0 +1,55 @@
+---
+# harden_os.yml
+# CIS Rocky Linux 9 Benchmark hardening applied to all nodes.
+
+- name: CIS Baseline Hardening — All Nodes
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - cis_hardening
+    - firewalld
+
+  post_tasks:
+    - name: Enable and configure auditd
+      service:
+        name: auditd
+        state: started
+        enabled: true
+
+    - name: Deploy auditd rules (NIST 800-171 aligned)
+      copy:
+        dest: /etc/audit/rules.d/nist.rules
+        content: |
+          # Monitor sudoers changes
+          -w /etc/sudoers -p wa -k sudoers_changes
+          # Monitor passwd/shadow changes
+          -w /etc/passwd -p wa -k identity
+          -w /etc/shadow -p wa -k identity
+          # Monitor SSH config
+          -w /etc/ssh/sshd_config -p wa -k sshd_config
+          # Monitor privileged commands
+          -a always,exit -F arch=b64 -S execve -F euid=0 -k privileged
+          # Monitor network config changes
+          -a always,exit -F arch=b64 -S sethostname -S setdomainname -k network_modifications
+        mode: '0640'
+      notify: restart auditd
+
+    - name: Run AIDE database initialization (first time)
+      command: aide --init
+      args:
+        creates: /var/lib/aide/aide.db.new.gz
+      async: 300
+      poll: 30
+
+    - name: Move AIDE initial database into place
+      command: mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz
+      args:
+        creates: /var/lib/aide/aide.db.gz
+
+  handlers:
+    - name: restart auditd
+      service:
+        name: auditd
+        state: restarted

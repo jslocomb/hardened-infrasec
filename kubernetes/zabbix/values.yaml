@@ -1,0 +1,40 @@
+zabbixServer:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+
+zabbixWeb:
+  enabled: true
+  replicaCount: 1
+  ZBX_SERVER_HOST: zabbix-zabbix-server
+  ZBX_SERVER_PORT: "10051"
+  LDAP_SERVER: ldaps://ipa01.lab.internal:636
+  LDAP_BASE_DN: "cn=users,cn=accounts,dc=lab,dc=internal"
+  LDAP_BIND_DN: "uid=zabbix-bind,cn=users,cn=accounts,dc=lab,dc=internal"
+
+postgresql:
+  enabled: true
+  auth:
+    username: zabbix
+    password: "CHANGEME"  # Overridden by secret in playbook
+  primary:
+    persistence:
+      enabled: true
+      storageClass: longhorn
+      size: 10Gi
+
+zabbixProxy:
+  enabled: false
+
+zabbixAgent:
+  enabled: true
+  # DaemonSet — agent runs on all nodes
+
+grafana:
+  enabled: false  # Using cluster Grafana with Zabbix plugin

@@ -1,0 +1,58 @@
+---
+# deploy_certmanager.yml
+# Deploys cert-manager and configures FreeIPA CA as the cluster issuer.
+
+- name: Deploy cert-manager
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Add cert-manager Helm repo
+      kubernetes.core.helm_repository:
+        name: jetstack
+        repo_url: https://charts.jetstack.io
+
+    - name: Install cert-manager via Helm
+      kubernetes.core.helm:
+        name: cert-manager
+        chart_ref: jetstack/cert-manager
+        release_namespace: cert-manager
+        create_namespace: true
+        values:
+          installCRDs: true
+          prometheus:
+            enabled: true
+            servicemonitor:
+              enabled: true
+        wait: true
+        timeout: 5m0s
+
+    - name: Fetch FreeIPA CA certificate
+      fetch:
+        src: /etc/ipa/ca.crt
+        dest: /tmp/freeipa-ca.crt
+        flat: true
+      delegate_to: ipa01.lab.internal
+      become: true
+
+    - name: Create FreeIPA CA secret in cert-manager namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: freeipa-ca-secret
+            namespace: cert-manager
+          type: kubernetes.io/tls
+          data:
+            tls.crt: "{{ lookup('file', '/tmp/freeipa-ca.crt') | b64encode }}"
+            tls.key: ""
+
+    - name: Apply FreeIPA ClusterIssuer
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/cert-manager/cluster-issuer-freeipa.yaml"

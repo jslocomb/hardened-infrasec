@@ -1,0 +1,56 @@
+---
+# deploy_zabbix.yml
+# Deploys Zabbix server and agent DaemonSet.
+
+- name: Deploy Zabbix
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create monitoring namespace (idempotent)
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/monitoring.yaml"
+
+    - name: Add Zabbix Helm repo
+      kubernetes.core.helm_repository:
+        name: zabbix-community
+        repo_url: https://zabbix-community.github.io/helm-zabbix
+
+    - name: Create Zabbix DB secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: zabbix-db-secret
+            namespace: monitoring
+          type: Opaque
+          stringData:
+            password: "{{ vault_zabbix_db_password }}"
+
+    - name: Install Zabbix via Helm
+      kubernetes.core.helm:
+        name: zabbix
+        chart_ref: zabbix-community/zabbix
+        release_namespace: monitoring
+        values_files:
+          - "{{ playbook_dir }}/../../kubernetes/zabbix/values.yaml"
+        wait: true
+        timeout: 10m0s
+
+    - name: Apply Zabbix agent DaemonSet
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/zabbix/agent-daemonset.yaml"
+
+    - name: Apply Zabbix Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/zabbix/ingress.yaml"

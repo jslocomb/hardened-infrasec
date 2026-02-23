@@ -1,0 +1,54 @@
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  namespace: devops
+spec:
+  service_type: ClusterIP
+  ingress_type: none  # Managed by separate ingress.yaml
+
+  # Admin credentials
+  admin_user: admin
+  admin_password_secret: awx-admin-password
+
+  # Persistent storage
+  postgres_storage_class: longhorn
+  projects_persistence: true
+  projects_storage_class: longhorn
+  projects_storage_size: 10Gi
+
+  # Resource requests
+  web_resource_requirements:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  task_resource_requirements:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # LDAP settings (post-deploy via AWX API/UI or extra_settings)
+  extra_settings:
+    - setting: AUTH_LDAP_SERVER_URI
+      value: "ldaps://ipa01.lab.internal:636"
+    - setting: AUTH_LDAP_BIND_DN
+      value: "uid=awx-bind,cn=users,cn=accounts,dc=lab,dc=internal"
+    - setting: AUTH_LDAP_BIND_PASSWORD
+      value: "{{ lookup('k8s', kind='Secret', namespace='devops', resource_name='awx-ldap-bind-secret') | json_query('data.ldap_bind_password') | b64decode }}"
+    - setting: AUTH_LDAP_USER_SEARCH
+      value: "LDAPSearch('cn=users,cn=accounts,dc=lab,dc=internal', ldap.SCOPE_SUBTREE, '(uid=%(user)s)')"
+    - setting: AUTH_LDAP_GROUP_SEARCH
+      value: "LDAPSearch('cn=groups,cn=accounts,dc=lab,dc=internal', ldap.SCOPE_SUBTREE, '(objectClass=groupOfNames)')"
+    - setting: AUTH_LDAP_REQUIRE_GROUP
+      value: "cn=awx-users,cn=groups,cn=accounts,dc=lab,dc=internal"
+    - setting: AUTH_LDAP_USER_FLAGS_BY_GROUP
+      value:
+        is_superuser:
+          - "cn=awx-admins,cn=groups,cn=accounts,dc=lab,dc=internal"

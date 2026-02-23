@@ -1,0 +1,41 @@
+---
+# Global variables for all hosts
+
+# ─── DNS / Domain ─────────────────────────────────────────────────────────────
+lab_domain: lab.internal
+freeipa_hostname: ipa01.lab.internal
+freeipa_ip: 192.168.10.5
+
+# ─── K8s Cluster ──────────────────────────────────────────────────────────────
+k8s_cp_ip: 192.168.10.10
+rke2_version: v1.28.6+rke2r1
+rke2_cni: canal
+rke2_profile: cis-1.23
+
+# ─── MetalLB IP Pool ──────────────────────────────────────────────────────────
+metallb_ip_range: 192.168.10.200-192.168.10.220
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+ingress_class: nginx
+
+# ─── NTP ──────────────────────────────────────────────────────────────────────
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+
+# ─── Packages ─────────────────────────────────────────────────────────────────
+base_packages:
+  - vim
+  - curl
+  - wget
+  - git
+  - bash-completion
+  - bind-utils
+  - net-tools
+  - tcpdump
+  - lsof
+  - htop
+  - iotop
+  - audit
+  - aide
+  - chrony

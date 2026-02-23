@@ -1,0 +1,9 @@
+# ipa-server.hbac
+# Restrict SSH access to the IPA server itself.
+
+# Rule: Only infra-admins can SSH to ipa01
+# ipa hbacrule-add ipa-server-ssh \
+#   --desc="Restrict IPA server SSH to admins only" \
+#   --servicecat=all
+# ipa hbacrule-add-user ipa-server-ssh --groups=infra-admins
+# ipa hbacrule-add-host ipa-server-ssh --hosts=ipa01.lab.internal

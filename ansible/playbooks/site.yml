@@ -1,0 +1,46 @@
+---
+# site.yml — Master playbook
+# Runs the full stack in dependency order.
+# Run individual playbooks for targeted deploys.
+
+- name: Provision and harden all nodes
+  import_playbook: provision_vms.yml
+
+- name: CIS OS hardening
+  import_playbook: harden_os.yml
+
+- name: Install RKE2 control plane
+  import_playbook: install_rke2_server.yml
+
+- name: Install RKE2 worker agents
+  import_playbook: install_rke2_agent.yml
+
+- name: Deploy MetalLB
+  import_playbook: deploy_metallb.yml
+
+- name: Deploy ingress-nginx
+  import_playbook: deploy_ingress.yml
+
+- name: Deploy cert-manager
+  import_playbook: deploy_certmanager.yml
+
+- name: Deploy Longhorn storage
+  import_playbook: deploy_longhorn.yml
+
+- name: Deploy GitLab CE
+  import_playbook: deploy_gitlab.yml
+
+- name: Deploy AWX
+  import_playbook: deploy_awx.yml
+
+- name: Deploy Prometheus + Grafana
+  import_playbook: deploy_monitoring.yml
+
+- name: Deploy Zabbix
+  import_playbook: deploy_zabbix.yml
+
+- name: Deploy NetBox
+  import_playbook: deploy_netbox.yml
+
+- name: Deploy Splunk
+  import_playbook: deploy_splunk.yml

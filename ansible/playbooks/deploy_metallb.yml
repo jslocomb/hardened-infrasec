@@ -1,0 +1,39 @@
+---
+# deploy_metallb.yml
+# Deploys MetalLB in L2 mode for LoadBalancer IP allocation.
+
+- name: Deploy MetalLB
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Add MetalLB Helm repo
+      kubernetes.core.helm_repository:
+        name: metallb
+        repo_url: https://metallb.github.io/metallb
+
+    - name: Install MetalLB via Helm
+      kubernetes.core.helm:
+        name: metallb
+        chart_ref: metallb/metallb
+        release_namespace: metallb-system
+        create_namespace: true
+        wait: true
+        timeout: 5m0s
+
+    - name: Wait for MetalLB webhooks to be ready
+      pause:
+        seconds: 30
+
+    - name: Apply MetalLB IPAddressPool
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/metallb/ipaddresspool.yaml"
+
+    - name: Apply MetalLB L2Advertisement
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/metallb/l2advertisement.yaml"

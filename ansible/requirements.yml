@@ -1,0 +1,18 @@
+---
+collections:
+  - name: ansible.posix
+    version: ">=1.5"
+  - name: community.general
+    version: ">=7.0"
+  - name: community.crypto
+    version: ">=2.0"
+  - name: kubernetes.core
+    version: ">=2.4"
+  - name: community.kubernetes
+    version: ">=2.0"
+
+roles:
+  - name: geerlingguy.repo-epel
+    version: "2.2.0"
+  - name: geerlingguy.security
+    version: "2.1.0"

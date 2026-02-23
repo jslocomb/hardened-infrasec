@@ -1,0 +1,21 @@
+# k8s-nodes.hbac
+# Host-Based Access Control rules for K8s node SSH access.
+# Apply via IPA CLI or Web UI.
+
+# Rule: Allow infra-admins to SSH to all K8s nodes
+# ipa hbacrule-add k8s-ssh-access \
+#   --desc="Allow infra-admins SSH to K8s nodes" \
+#   --servicecat=all
+# ipa hbacrule-add-user k8s-ssh-access --groups=infra-admins
+# ipa hbacrule-add-host k8s-ssh-access \
+#   --hosts=k8s-cp01.lab.internal \
+#   --hosts=k8s-w01.lab.internal \
+#   --hosts=k8s-w02.lab.internal \
+#   --hosts=k8s-w03.lab.internal
+
+# Rule: Deny all other access to K8s nodes
+# ipa hbacrule-disable allow_all  # Disable the default allow_all rule!
+
+# Rule: Allow LDAP bind accounts to authenticate from cluster
+# (Service accounts use LDAP simple bind — no Kerberos/HBAC needed)
+# Just ensure the bind accounts have the correct userPassword set.

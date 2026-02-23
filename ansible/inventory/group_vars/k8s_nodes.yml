@@ -1,0 +1,38 @@
+---
+# Variables applied to all K8s nodes (control plane + workers)
+
+# Kernel modules required for K8s networking
+k8s_kernel_modules:
+  - overlay
+  - br_netfilter
+
+# Sysctl parameters for K8s
+k8s_sysctl_params:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1
+  net.ipv6.conf.all.forwarding: 1
+  fs.inotify.max_user_watches: 524288
+  fs.inotify.max_user_instances: 512
+
+# Packages needed on K8s nodes
+k8s_node_packages:
+  - iscsi-initiator-utils
+  - nfs-utils
+  - cryptsetup
+  - device-mapper
+
+# Firewall ports for RKE2
+rke2_server_firewall_ports:
+  - "6443/tcp"   # K8s API
+  - "9345/tcp"   # RKE2 supervisor API
+  - "10250/tcp"  # Kubelet
+  - "2379/tcp"   # etcd client
+  - "2380/tcp"   # etcd peer
+  - "179/tcp"    # Calico BGP (if used)
+  - "8472/udp"   # VXLAN (Canal/Flannel)
+  - "4240/tcp"   # Cilium health (if used)
+
+rke2_agent_firewall_ports:
+  - "10250/tcp"  # Kubelet
+  - "8472/udp"   # VXLAN

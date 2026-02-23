@@ -1,0 +1,42 @@
+image:
+  tag: v3.7.0
+
+superuser:
+  name: admin
+  email: admin@lab.internal
+
+# LDAP configuration (django-auth-ldap)
+remoteAuth:
+  enabled: true
+  backend: netbox.authentication.LDAPBackend
+
+extraConfig:
+  - secret:
+      name: netbox-ldap-config
+
+postgresql:
+  enabled: true
+  auth:
+    username: netbox
+    password: "CHANGEME"
+  primary:
+    persistence:
+      enabled: true
+      storageClass: longhorn
+      size: 10Gi
+
+redis:
+  enabled: true
+
+persistence:
+  enabled: true
+  storageClass: longhorn
+  size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi

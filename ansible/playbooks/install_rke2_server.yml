@@ -1,0 +1,48 @@
+---
+# install_rke2_server.yml
+# Installs and configures RKE2 on the control plane node.
+
+- name: Install RKE2 Control Plane
+  hosts: control_plane
+  become: true
+  gather_facts: true
+
+  roles:
+    - rke2_server
+
+  post_tasks:
+    - name: Wait for RKE2 to be ready
+      wait_for:
+        port: 6443
+        host: "{{ ansible_host }}"
+        timeout: 300
+
+    - name: Set KUBECONFIG in root bashrc
+      lineinfile:
+        path: /root/.bashrc
+        line: "export KUBECONFIG=/etc/rancher/rke2/server/creds/admin.kubeconfig"
+        state: present
+
+    - name: Symlink kubectl to PATH
+      file:
+        src: /var/lib/rancher/rke2/bin/kubectl
+        dest: /usr/local/bin/kubectl
+        state: link
+
+    - name: Retrieve node token for workers
+      slurp:
+        src: /var/lib/rancher/rke2/server/node-token
+      register: rke2_node_token
+
+    - name: Save node token as a fact
+      set_fact:
+        rke2_token: "{{ rke2_node_token.content | b64decode | trim }}"
+
+    - name: Wait for all nodes to be ready
+      command: kubectl get nodes --no-headers
+      register: node_status
+      until: node_status.rc == 0
+      retries: 30
+      delay: 10
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig

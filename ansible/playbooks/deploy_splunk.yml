@@ -1,0 +1,76 @@
+---
+# deploy_splunk.yml
+# Deploys Splunk Enterprise via the Splunk Operator.
+
+- name: Deploy Splunk SIEM
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create logging namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/logging.yaml"
+
+    - name: Apply Splunk Operator CRDs and Operator
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/splunk/operator-install.yaml"
+
+    - name: Wait for Splunk Operator to be ready
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: splunk-operator-controller-manager
+        namespace: logging
+      register: splunk_op
+      until: splunk_op.resources[0].status.readyReplicas | default(0) >= 1
+      retries: 30
+      delay: 10
+
+    - name: Create Splunk license secret
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/splunk/license-secret.yaml"
+
+    - name: Create Splunk admin password secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: splunk-standalone-secret
+            namespace: logging
+          type: Opaque
+          stringData:
+            password: "{{ vault_splunk_password }}"
+
+    - name: Apply Splunk StandaloneInstance CR
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/splunk/standalone-instance.yaml"
+
+    - name: Wait for Splunk to be ready (may take 10-15 min)
+      kubernetes.core.k8s_info:
+        kind: StatefulSet
+        name: splunk-standalone-standalone
+        namespace: logging
+      register: splunk_sts
+      until: splunk_sts.resources[0].status.readyReplicas | default(0) >= 1
+      retries: 60
+      delay: 30
+
+    - name: Deploy Universal Forwarder DaemonSet
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/splunk/inputs/forwarder-config.yaml"
+
+    - name: Apply Splunk Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/splunk/ingress.yaml"

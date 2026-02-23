@@ -1,0 +1,30 @@
+---
+# roles/rke2_agent/tasks/main.yml
+
+- name: Create RKE2 config directory
+  file:
+    path: /etc/rancher/rke2
+    state: directory
+    mode: '0755'
+
+- name: Deploy RKE2 agent config
+  template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    mode: '0600'
+
+- name: Download and install RKE2 agent
+  shell: |
+    curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" INSTALL_RKE2_VERSION="{{ rke2_version }}" sh -
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Enable RKE2 agent service
+  service:
+    name: rke2-agent
+    enabled: true
+
+- name: Start RKE2 agent service
+  service:
+    name: rke2-agent
+    state: started

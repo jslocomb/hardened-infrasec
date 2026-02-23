@@ -1,0 +1,10 @@
+---
+# Grafana LDAP config — injected as a secret mounted at /etc/grafana/ldap.toml
+# See prometheus/values.yaml grafana.ldap.config for the full content.
+# This file documents the FreeIPA groups to create:
+#
+#   cn=grafana-admins,cn=groups,cn=accounts,dc=lab,dc=internal
+#   cn=grafana-editors,cn=groups,cn=accounts,dc=lab,dc=internal
+#
+# Service account:
+#   uid=grafana-bind,cn=users,cn=accounts,dc=lab,dc=internal

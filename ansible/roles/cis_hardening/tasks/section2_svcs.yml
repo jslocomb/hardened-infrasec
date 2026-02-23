@@ -1,0 +1,56 @@
+---
+# CIS Section 2 — Services
+
+- name: "CIS 2.1 | Disable inetd services"
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - chargen
+    - daytime
+    - discard
+    - echo
+    - time
+  ignore_errors: true
+
+- name: "CIS 2.2 | Ensure X Window System is not installed"
+  dnf:
+    name: "xorg-x11*"
+    state: absent
+
+- name: "CIS 2.2 | Remove unnecessary services"
+  dnf:
+    name:
+      - telnet
+      - rsh
+      - rlogin
+      - rexec
+      - tftp
+      - talk
+    state: absent
+
+- name: "CIS 2.2 | Ensure avahi-daemon is not running"
+  service:
+    name: avahi-daemon
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: "CIS 2.2 | Ensure cups is not running"
+  service:
+    name: cups
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: "CIS 2.3 | Ensure NFS is not running (unless needed)"
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - rpcbind
+    - nfs-server
+  ignore_errors: true
+  when: not nfs_required | default(false)

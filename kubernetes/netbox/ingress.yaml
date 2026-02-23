@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbox-ingress
+  namespace: netops
+  annotations:
+    cert-manager.io/cluster-issuer: freeipa-ca-issuer
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - netbox.lab.internal
+      secretName: netbox-tls
+  rules:
+    - host: netbox.lab.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netbox
+                port:
+                  number: 80

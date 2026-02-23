@@ -1,0 +1,12 @@
+---
+# Variables specific to K8s worker nodes
+
+rke2_agent_config:
+  server: "https://192.168.10.10:9345"
+  # token populated from vault or discovered from control plane
+
+# Node taints by role (applied post-join)
+worker_node_taints: []
+
+# Longhorn data path on workers
+longhorn_data_path: /var/lib/longhorn

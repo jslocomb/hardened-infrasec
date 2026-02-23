@@ -1,0 +1,52 @@
+---
+# deploy_gitlab.yml
+# Deploys GitLab CE with FreeIPA LDAP authentication.
+
+- name: Deploy GitLab CE
+  hosts: control_plane
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all.vault.yml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/server/creds/admin.kubeconfig
+
+  tasks:
+    - name: Create devops namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/namespaces/devops.yaml"
+
+    - name: Add GitLab Helm repo
+      kubernetes.core.helm_repository:
+        name: gitlab
+        repo_url: https://charts.gitlab.io
+
+    - name: Create GitLab LDAP secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: gitlab-ldap-secret
+            namespace: devops
+          type: Opaque
+          stringData:
+            password: "{{ vault_awx_ldap_bind_password }}"
+
+    - name: Install GitLab CE via Helm
+      kubernetes.core.helm:
+        name: gitlab
+        chart_ref: gitlab/gitlab
+        chart_version: "7.x"
+        release_namespace: devops
+        values_files:
+          - "{{ playbook_dir }}/../../kubernetes/gitlab/values.yaml"
+        wait: true
+        timeout: 15m0s
+
+    - name: Apply GitLab Ingress
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ playbook_dir }}/../../kubernetes/gitlab/ingress.yaml"
