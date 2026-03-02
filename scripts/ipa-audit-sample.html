@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FreeIPA Account Audit — dry-run.local</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         margin: 0; padding: 20px; background: #f9fafb; color: #111827; }
+  h1   { font-size: 20px; color: #1e3a5f; margin-bottom: 4px; }
+  .meta { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .card { background: white; border-radius: 8px; padding: 16px 20px;
+           box-shadow: 0 1px 3px rgba(0,0,0,.1); min-width: 120px; }
+  .card .num { font-size: 28px; font-weight: bold; }
+  .card .lbl { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .critical .num { color: #dc2626; }
+  .high .num     { color: #ea580c; }
+  .medium .num   { color: #d97706; }
+  .low .num      { color: #2563eb; }
+  .clean .num    { color: #16a34a; }
+  table { width: 100%; border-collapse: collapse; background: white;
+           border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  th { background: #1e3a5f; color: white; padding: 8px; text-align: left;
+       font-size: 12px; font-weight: 600; }
+  tr:nth-child(even) { background: #f9fafb; }
+  td { font-size: 12px; border-bottom: 1px solid #e5e7eb; }
+  .nist { margin-top: 24px; background: white; border-radius: 8px; padding: 16px;
+           box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .nist h3 { margin: 0 0 8px 0; font-size: 14px; color: #1e3a5f; }
+  .nist p { font-size: 12px; color: #374151; margin: 4px 0; }
+  .footer { margin-top: 20px; font-size: 11px; color: #9ca3af; }
+</style>
+</head>
+<body>
+<h1>FreeIPA Account Lifecycle Audit</h1>
+<div class="meta">
+  Server: <strong>dry-run.local</strong> &nbsp;·&nbsp;
+  Generated: <strong>2026-03-02T04:42:53.803850+00:00</strong> &nbsp;·&nbsp;
+  Thresholds: inactive &gt; 90d,
+  password unchanged &gt; 365d
+</div>
+
+<div class="cards">
+  <div class="card"><div class="num">10</div>
+    <div class="lbl">Total Users</div></div>
+  <div class="card critical"><div class="num">5</div>
+    <div class="lbl">Critical</div></div>
+  <div class="card high"><div class="num">0</div>
+    <div class="lbl">High</div></div>
+  <div class="card medium"><div class="num">2</div>
+    <div class="lbl">Medium</div></div>
+  <div class="card low"><div class="num">1</div>
+    <div class="lbl">Low</div></div>
+  <div class="card clean"><div class="num">2</div>
+    <div class="lbl">Clean</div></div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="num">1</div>
+    <div class="lbl">Locked</div></div>
+  <div class="card"><div class="num">1</div>
+    <div class="lbl">Never Logged In</div></div>
+  <div class="card"><div class="num">3</div>
+    <div class="lbl">Inactive</div></div>
+  <div class="card"><div class="num">1</div>
+    <div class="lbl">Expired Passwords</div></div>
+  <div class="card"><div class="num">4</div>
+    <div class="lbl">Privileged + Stale</div></div>
+  <div class="card"><div class="num">2</div>
+    <div class="lbl">No Email</div></div>
+</div>
+
+<h2 style="font-size:16px;color:#1e3a5f;margin-bottom:8px">
+  Flagged Accounts (8)
+</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>UID</th><th>Display Name</th><th>Email</th><th>Severity</th>
+      <th>Risk Flags</th><th>Days Since Login</th><th>Days Since Pwd Chg</th>
+      <th>Locked</th><th>Privileged</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+          <tr style="border-left:4px solid #dc2626">
+            <td style="padding:6px 8px;font-weight:bold">tnewbie</td>
+            <td style="padding:6px 8px">Tom Newbie</td>
+            <td style="padding:6px 8px">tnewbie@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">CRITICAL</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">never_logged_in</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">privileged_inactive</span></td>
+            <td style="padding:6px 8px;text-align:right">—</td>
+            <td style="padding:6px 8px;text-align:right">45</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #dc2626">
+            <td style="padding:6px 8px;font-weight:bold">bwilson</td>
+            <td style="padding:6px 8px">Bob Wilson</td>
+            <td style="padding:6px 8px">bwilson@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">CRITICAL</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">inactive</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">privileged_inactive</span></td>
+            <td style="padding:6px 8px;text-align:right">120</td>
+            <td style="padding:6px 8px;text-align:right">150</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #dc2626">
+            <td style="padding:6px 8px;font-weight:bold">svc_deploy</td>
+            <td style="padding:6px 8px">Deploy Service Account</td>
+            <td style="padding:6px 8px"><em style="color:#9ca3af">none</em></td>
+            <td style="padding:6px 8px"><span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">CRITICAL</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">inactive</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">account_locked</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">password_expired</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">no_email</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">privileged_inactive</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">high_failed_logins</span></td>
+            <td style="padding:6px 8px;text-align:right">200</td>
+            <td style="padding:6px 8px;text-align:right">200</td>
+            <td style="padding:6px 8px">🔒</td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #dc2626">
+            <td style="padding:6px 8px;font-weight:bold">mthomas</td>
+            <td style="padding:6px 8px">Mary Thomas</td>
+            <td style="padding:6px 8px">mthomas@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">CRITICAL</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">principal_expired</span></td>
+            <td style="padding:6px 8px;text-align:right">30</td>
+            <td style="padding:6px 8px;text-align:right">30</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #dc2626">
+            <td style="padding:6px 8px;font-weight:bold">formadmin</td>
+            <td style="padding:6px 8px">Former Admin</td>
+            <td style="padding:6px 8px">formadmin@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">CRITICAL</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">inactive</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">privileged_inactive</span></td>
+            <td style="padding:6px 8px;text-align:right">150</td>
+            <td style="padding:6px 8px;text-align:right">150</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #d97706">
+            <td style="padding:6px 8px;font-weight:bold">rjones</td>
+            <td style="padding:6px 8px">Robert Jones</td>
+            <td style="padding:6px 8px">rjones@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#d97706;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">MEDIUM</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">stale_password</span></td>
+            <td style="padding:6px 8px;text-align:right">10</td>
+            <td style="padding:6px 8px;text-align:right">400</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #d97706">
+            <td style="padding:6px 8px;font-weight:bold">kpatel</td>
+            <td style="padding:6px 8px">Kamil Patel</td>
+            <td style="padding:6px 8px">kpatel@lab.internal</td>
+            <td style="padding:6px 8px"><span style="background:#d97706;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">MEDIUM</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">high_failed_logins</span></td>
+            <td style="padding:6px 8px;text-align:right">2</td>
+            <td style="padding:6px 8px;text-align:right">60</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px">⚠️</td>
+          </tr>
+          <tr style="border-left:4px solid #2563eb">
+            <td style="padding:6px 8px;font-weight:bold">orphan01</td>
+            <td style="padding:6px 8px">Orphan Account</td>
+            <td style="padding:6px 8px"><em style="color:#9ca3af">none</em></td>
+            <td style="padding:6px 8px"><span style="background:#2563eb;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">LOW</span></td>
+            <td style="padding:6px 8px"><span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">no_groups</span> <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">no_email</span></td>
+            <td style="padding:6px 8px;text-align:right">5</td>
+            <td style="padding:6px 8px;text-align:right">60</td>
+            <td style="padding:6px 8px"></td>
+            <td style="padding:6px 8px"></td>
+          </tr>
+  </tbody>
+</table>
+
+<div class="nist">
+  <h3>NIST 800-171 Controls Addressed</h3>
+  <p><strong>AC-3.1.1</strong> — Limit system access to authorized users, processes, and devices</p>
+  <p><strong>AC-3.1.2</strong> — Limit system access to types of transactions authorized users are permitted to execute</p>
+  <p><strong>IA-3.5.4</strong> — Manage information system identifiers for users and devices</p>
+  <p><strong>IA-3.5.7</strong> — Enforce minimum password complexity and change requirements</p>
+  <p><strong>AC-3.1.14</strong> — Employ cryptographic mechanisms to protect remote access sessions</p>
+</div>
+
+<div class="footer">
+  Generated by freeipa_account_auditor.py v1.0.0 &nbsp;·&nbsp;
+  Jason A. Slocomb &nbsp;·&nbsp;
+  8 flagged, 2 clean of 10 total accounts
+</div>
+</body>
+</html>
