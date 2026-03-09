@@ -1,92 +1,58 @@
----
 # .gitlab-ci.yml
 # ──────────────────────────────────────────────────────────────────────────────
-# GitLab CI/CD Pipeline — Homelab K8s Infrastructure + Security Automation
+# GitLab CI Pipeline — Python Security Automation Scripts
 #
+# Runs on every push and merge request targeting the main branch.
 # Stages:
-#   validate  — Terraform validate, Ansible lint, K8s manifest dry-run,
-#               Python flake8 + bandit
-#   plan      — Terraform plan
-#   test      — pytest unit tests for Python security scripts
-#   deploy    — Ansible deploy (manual gate)
-#   verify    — Cluster health check + test report summary
+#   1. lint   — flake8 style + syntax check; bandit security analysis
+#   2. test   — pytest unit tests for all three automation scripts
+#   3. report — upload test results and coverage artifacts
+#
+# Scripts tested:
+#   scripts/aide_to_splunk.py          (AIDE → Splunk HEC ingest)
+#   scripts/freeipa_account_auditor.py (FreeIPA stale account detection)
+#   scripts/k8s_secret_auditor.py      (K8s audit log anomaly detection)
+#
+# Requires runner tag: python-runner (shell or docker executor)
+# Docker image: python:3.11-slim
 # ──────────────────────────────────────────────────────────────────────────────
 
 stages:
-  - validate
-  - plan
+  - lint
   - test
-  - deploy
-  - verify
+  - report
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared configuration
 # ─────────────────────────────────────────────────────────────────────────────
 
-variables:
-  ANSIBLE_HOST_KEY_CHECKING: "False"
-  TF_ROOT: "${CI_PROJECT_DIR}/terraform"
-  SCRIPTS_DIR: "scripts"
-  TESTS_DIR: "tests"
-  PYTHONPATH: "${SCRIPTS_DIR}"
-  PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/pip"
-
-.python-base:
+default:
   image: python:3.11-slim
   before_script:
     - pip install --upgrade pip --quiet
     - pip install flake8 bandit pytest pytest-cov --quiet
   cache:
-    key: "python-${CI_COMMIT_REF_SLUG}"
+    key: "${CI_COMMIT_REF_SLUG}"
     paths:
       - .cache/pip/
 
+variables:
+  PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/pip"
+  SCRIPTS_DIR: "scripts"
+  TESTS_DIR: "tests"
+  PYTHONPATH: "${SCRIPTS_DIR}"
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage: validate
+# Stage: lint
 # ─────────────────────────────────────────────────────────────────────────────
-
-# ── Terraform ─────────────────────────────────────────────────────────────────
-
-tf:validate:
-  stage: validate
-  image: hashicorp/terraform:1.6
-  script:
-    - cd $TF_ROOT
-    - terraform init -backend=false
-    - terraform validate
-  rules:
-    - changes:
-        - terraform/**/*
-
-# ── Ansible ───────────────────────────────────────────────────────────────────
-
-ansible:lint:
-  stage: validate
-  image: cytopia/ansible-lint:latest
-  script:
-    - ansible-lint ansible/playbooks/
-  rules:
-    - changes:
-        - ansible/**/*
-
-# ── Kubernetes manifests ──────────────────────────────────────────────────────
-
-k8s:validate:
-  stage: validate
-  image: bitnami/kubectl:latest
-  script:
-    - find kubernetes/ -name "*.yaml" -exec kubectl apply --dry-run=client -f {} \;
-  rules:
-    - changes:
-        - kubernetes/**/*
-
-# ── Python: flake8 ────────────────────────────────────────────────────────────
 
 lint:flake8:
-  extends: .python-base
-  stage: validate
+  stage: lint
   script:
     - echo "=== flake8 style and syntax check ==="
+    # E501: max line length 120 (security scripts have long doc strings)
+    # W503: line break before binary operator (allowed per PEP 8 update)
+    # E402: module-level import not at top (scripts use sys.path manipulation)
     - flake8
         --max-line-length=120
         --ignore=W503,E402
@@ -99,62 +65,51 @@ lint:flake8:
     - echo "flake8 PASSED"
   allow_failure: false
   rules:
-    - changes:
-        - scripts/**/*
-        - tests/**/*
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
-# ── Python: bandit (advisory) ─────────────────────────────────────────────────
-
 lint:bandit:
-  extends: .python-base
-  stage: validate
+  stage: lint
   script:
     - echo "=== bandit security linter ==="
-    - bandit -r ${SCRIPTS_DIR} -ll -f json -o bandit-report.json || bandit -r ${SCRIPTS_DIR} -ll -f txt
-    - echo "bandit complete — see bandit-report.json"
+    # -ll: report HIGH severity only (avoids noise from test fixtures)
+    # -r: recursive
+    # -f json: machine-readable output for artifact
+    - bandit
+        -r ${SCRIPTS_DIR}
+        -ll
+        -f json
+        -o bandit-report.json
+        || bandit
+             -r ${SCRIPTS_DIR}
+             -ll
+             -f txt
+        # bandit exits non-zero if findings present; show text for readability
+    - echo "bandit complete — check bandit-report.json for details"
   artifacts:
     name: "bandit-${CI_COMMIT_SHORT_SHA}"
     paths:
       - bandit-report.json
     expire_in: 7 days
     when: always
-  allow_failure: true   # advisory only — does not block pipeline
+  # bandit findings are advisory — do not block the pipeline
+  allow_failure: true
   rules:
-    - changes:
-        - scripts/**/*
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage: plan
-# ─────────────────────────────────────────────────────────────────────────────
-
-tf:plan:
-  stage: plan
-  image: hashicorp/terraform:1.6
-  script:
-    - cd $TF_ROOT
-    - terraform init
-    - terraform plan -out=tfplan
-  artifacts:
-    paths:
-      - terraform/tfplan
-    expire_in: 1 week
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      changes:
-        - terraform/**/*
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage: test
 # ─────────────────────────────────────────────────────────────────────────────
 
 test:aide_to_splunk:
-  extends: .python-base
   stage: test
   script:
-    - pytest ${TESTS_DIR}/test_aide_to_splunk.py
-        -v --tb=short
+    - echo "=== Unit tests: aide_to_splunk.py ==="
+    - pytest
+        ${TESTS_DIR}/test_aide_to_splunk.py
+        -v
+        --tb=short
         --junit-xml=test-results/aide_to_splunk.xml
         --cov=${SCRIPTS_DIR}/aide_to_splunk
         --cov-report=term-missing
@@ -173,20 +128,21 @@ test:aide_to_splunk:
       - coverage/
     expire_in: 30 days
     when: always
+  allow_failure: false
   needs:
     - lint:flake8
   rules:
-    - changes:
-        - scripts/aide_to_splunk.py
-        - tests/test_aide_to_splunk.py
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 test:freeipa_account_auditor:
-  extends: .python-base
   stage: test
   script:
-    - pytest ${TESTS_DIR}/test_freeipa_account_auditor.py
-        -v --tb=short
+    - echo "=== Unit tests: freeipa_account_auditor.py ==="
+    - pytest
+        ${TESTS_DIR}/test_freeipa_account_auditor.py
+        -v
+        --tb=short
         --junit-xml=test-results/freeipa_account_auditor.xml
         --cov=${SCRIPTS_DIR}/freeipa_account_auditor
         --cov-report=term-missing
@@ -205,20 +161,21 @@ test:freeipa_account_auditor:
       - coverage/
     expire_in: 30 days
     when: always
+  allow_failure: false
   needs:
     - lint:flake8
   rules:
-    - changes:
-        - scripts/freeipa_account_auditor.py
-        - tests/test_freeipa_account_auditor.py
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 test:k8s_secret_auditor:
-  extends: .python-base
   stage: test
   script:
-    - pytest ${TESTS_DIR}/test_k8s_secret_auditor.py
-        -v --tb=short
+    - echo "=== Unit tests: k8s_secret_auditor.py ==="
+    - pytest
+        ${TESTS_DIR}/test_k8s_secret_auditor.py
+        -v
+        --tb=short
         --junit-xml=test-results/k8s_secret_auditor.xml
         --cov=${SCRIPTS_DIR}/k8s_secret_auditor
         --cov-report=term-missing
@@ -237,26 +194,27 @@ test:k8s_secret_auditor:
       - coverage/
     expire_in: 30 days
     when: always
+  allow_failure: false
   needs:
     - lint:flake8
   rules:
-    - changes:
-        - scripts/k8s_secret_auditor.py
-        - tests/test_k8s_secret_auditor.py
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 test:all:
-  extends: .python-base
   stage: test
   script:
     - echo "=== Full suite: all scripts combined ==="
-    - pytest ${TESTS_DIR}/
-        -v --tb=short
+    - pytest
+        ${TESTS_DIR}/
+        -v
+        --tb=short
         --junit-xml=test-results/all.xml
         --cov=${SCRIPTS_DIR}
         --cov-report=term-missing
         --cov-report=html:coverage/html/
         --cov-report=xml:coverage/all.xml
+        -q
     - echo "All tests passed"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
@@ -271,92 +229,60 @@ test:all:
       - coverage/
     expire_in: 30 days
     when: always
+  allow_failure: false
   needs:
     - lint:flake8
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage: deploy
+# Stage: report
 # ─────────────────────────────────────────────────────────────────────────────
 
-deploy:monitoring:
-  stage: deploy
-  image: cytopia/ansible:latest
+report:summary:
+  stage: report
   script:
-    - ansible-playbook ansible/playbooks/deploy_monitoring.yml
-  environment:
-    name: homelab
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      changes:
-        - kubernetes/prometheus/**/*
-        - kubernetes/grafana/**/*
-      when: manual
-
-deploy:awx:
-  stage: deploy
-  image: cytopia/ansible:latest
-  script:
-    - ansible-playbook ansible/playbooks/deploy_awx.yml
-  environment:
-    name: homelab
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage: verify
-# ─────────────────────────────────────────────────────────────────────────────
-
-verify:cluster:
-  stage: verify
-  image: bitnami/kubectl:latest
-  script:
-    - bash scripts/verify-cluster-health.sh
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-verify:test-summary:
-  extends: .python-base
-  stage: verify
-  script:
-    - echo "=== Test Summary ==="
-    - echo "Commit ${CI_COMMIT_SHORT_SHA} on ${CI_COMMIT_REF_NAME}"
+    - echo "=== Pipeline Summary ==="
+    - echo "Commit: ${CI_COMMIT_SHORT_SHA} on ${CI_COMMIT_REF_NAME}"
+    - echo "Pipeline: ${CI_PIPELINE_URL}"
     - |
       if [ -f test-results/all.xml ]; then
+        # Print a human-readable test summary from JUnit XML
         python3 -c "
       import xml.etree.ElementTree as ET
       tree = ET.parse('test-results/all.xml')
       root = tree.getroot()
       suite = root if root.tag == 'testsuite' else root.find('testsuite')
       if suite is not None:
-          tests    = suite.get('tests', '?')
+          tests = suite.get('tests', '?')
           failures = suite.get('failures', '0')
-          errors   = suite.get('errors', '0')
-          elapsed  = suite.get('time', '?')
-          print(f'Tests: {tests} | Failures: {failures} | Errors: {errors} | Time: {elapsed}s')
+          errors = suite.get('errors', '0')
+          skipped = suite.get('skipped', '0')
+          elapsed = suite.get('time', '?')
+          print(f'Tests: {tests} | Failures: {failures} | Errors: {errors} | Skipped: {skipped} | Time: {elapsed}s')
       "
       fi
+    - echo "=== Done ==="
   needs:
     - test:all
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   when: always
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Scheduled: weekly full audit (not triggered on push)
+# Optional: scheduled full audit (weekly, not on every push)
 # ─────────────────────────────────────────────────────────────────────────────
 
 test:scheduled-full:
-  extends: .python-base
   stage: test
   script:
+    - echo "=== Scheduled full security audit ==="
+    - pip install pytest pytest-cov flake8 bandit --quiet
     - flake8 ${SCRIPTS_DIR}/ --max-line-length=120 --ignore=W503,E402
     - bandit -r ${SCRIPTS_DIR}/ -f txt || true
     - pytest ${TESTS_DIR}/ -v --tb=long --cov=${SCRIPTS_DIR} --cov-report=term
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-
+  allow_failure: false
