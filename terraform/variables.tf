@@ -1,10 +1,10 @@
 variable "proxmox_api_url" {
-  description = "Proxmox API endpoint"
+  description = "Proxmox API endpoint — e.g. https://192.168.1.100:8006"
   type        = string
 }
 
 variable "proxmox_user" {
-  description = "Proxmox API user (e.g. terraform@pam)"
+  description = "Proxmox API user — e.g. terraform@pam"
   type        = string
   default     = "terraform@pam"
 }
@@ -22,35 +22,43 @@ variable "proxmox_tls_insecure" {
 }
 
 variable "proxmox_node" {
-  description = "Proxmox target node name"
+  description = "Proxmox target node name — check top-left in Proxmox UI, usually 'pve'"
   type        = string
   default     = "pve"
 }
 
-variable "vm_template" {
-  description = "Proxmox VM template name for Rocky Linux 9"
-  type        = string
-  default     = "rocky9-template"
+# bpg/proxmox clones by VM ID, not name
+variable "vm_template_id" {
+  description = "VM ID of the Rocky Linux 9 cloud-init template (created in step 1.8-1.12)"
+  type        = number
+  default     = 9000
 }
 
-variable "ssh_public_keys" {
-  description = "SSH public keys injected into VMs"
+variable "datastore" {
+  description = "Proxmox storage pool for VM disks — check Proxmox UI > Datacenter > Storage"
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key injected into VMs via cloud-init — output of: cat ~/.ssh/id_ed25519.pub"
   type        = string
 }
 
 variable "gateway" {
-  description = "Default gateway for all VMs"
+  description = "Default gateway for all lab VMs — Proxmox vmbr1 address"
   type        = string
   default     = "192.168.10.1"
 }
 
 variable "nameserver" {
-  description = "Initial nameserver before FreeIPA is up"
+  description = "Initial DNS server before FreeIPA is running — use gateway or a public resolver"
   type        = string
   default     = "192.168.10.1"
 }
 
 # ─── IP Addresses ─────────────────────────────────────────────────────────────
+
 variable "ip_ipa01" {
   description = "FreeIPA VM static IP"
   type        = string

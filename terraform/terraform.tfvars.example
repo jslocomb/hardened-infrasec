@@ -1,23 +1,32 @@
 # terraform.tfvars.example
+# ──────────────────────────────────────────────────────────────────────────────
 # Copy to terraform.tfvars and fill in your values.
-# NEVER commit terraform.tfvars to git.
+# NEVER commit terraform.tfvars to git — it is in .gitignore.
+# ──────────────────────────────────────────────────────────────────────────────
 
-proxmox_api_url      = "https://192.168.1.100:8006/api2/json"
+# Proxmox API
+proxmox_api_url      = "https://192.168.1.X:8006"   # your Proxmox host IP
 proxmox_user         = "terraform@pam"
 proxmox_password     = "CHANGEME"
 proxmox_tls_insecure = true
-proxmox_node         = "pve"
-vm_template          = "rocky9-template"
+proxmox_node         = "pve"                          # check top-left in Proxmox UI
 
-ssh_public_keys = <<EOF
-ssh-ed25519 AAAAC3Nza... your-key-here
-EOF
+# Storage — verify with: pvesm status
+datastore       = "local-lvm"
 
+# Template VM ID created in steps 1.8-1.12
+vm_template_id  = 9000
+
+# SSH public key — run: cat ~/.ssh/id_ed25519.pub
+ssh_public_key  = "ssh-ed25519 AAAAC3Nza... your-key-here"
+
+# Networking
 gateway    = "192.168.10.1"
-nameserver = "192.168.10.1"
+nameserver = "192.168.10.1"    # use gateway until FreeIPA is up
 
-ip_ipa01     = "192.168.10.5"
-ip_k8s_cp01  = "192.168.10.10"
-ip_k8s_w01   = "192.168.10.11"
-ip_k8s_w02   = "192.168.10.12"
-ip_k8s_w03   = "192.168.10.13"
+# VM IPs — these are set by cloud-init on first boot
+ip_ipa01    = "192.168.10.5"
+ip_k8s_cp01 = "192.168.10.10"
+ip_k8s_w01  = "192.168.10.11"
+ip_k8s_w02  = "192.168.10.12"
+ip_k8s_w03  = "192.168.10.13"
