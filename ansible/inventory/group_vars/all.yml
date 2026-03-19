@@ -1,6 +1,4 @@
 ---
-# Global variables for all hosts
-
 # ─── DNS / Domain ─────────────────────────────────────────────────────────────
 lab_domain: lab.internal
 freeipa_hostname: ipa01.lab.internal
@@ -23,19 +21,29 @@ ntp_servers:
   - 0.pool.ntp.org
   - 1.pool.ntp.org
 
-# ─── Packages ─────────────────────────────────────────────────────────────────
+# ─── Base packages (Debian 12) ────────────────────────────────────────────────
+# Note: switched from Rocky Linux 9 (dnf) to Debian 12 (apt)
+# - bind-utils → dnsutils
+# - chrony → chrony (same)
+# - audit → auditd
+# - no firewalld → ufw
 base_packages:
   - vim
   - curl
   - wget
   - git
   - bash-completion
-  - bind-utils
+  - dnsutils
   - net-tools
   - tcpdump
   - lsof
   - htop
   - iotop
-  - audit
+  - auditd
   - aide
   - chrony
+  - ufw
+  - python3-pip
+  - ca-certificates
+  - gnupg
+  - apt-transport-https
