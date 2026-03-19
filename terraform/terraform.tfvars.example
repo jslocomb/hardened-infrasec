@@ -5,7 +5,8 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Proxmox API
-proxmox_api_url      = "https://192.168.1.X:8006"   # your Proxmox host IP
+proxmox_api_url      = "https://192.168.0.5:8006"
+proxmox_host_ip      = "192.168.0.5"
 proxmox_user         = "terraform@pam"
 proxmox_password     = "CHANGEME"
 proxmox_tls_insecure = true

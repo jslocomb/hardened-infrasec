@@ -359,4 +359,3 @@ test:scheduled-full:
     - pytest ${TESTS_DIR}/ -v --tb=long --cov=${SCRIPTS_DIR} --cov-report=term
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-
