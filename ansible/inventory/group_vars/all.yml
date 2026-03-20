@@ -43,7 +43,6 @@ base_packages:
   - aide
   - chrony
   - ufw
-  - python3-pip
   - ca-certificates
   - gnupg
   - apt-transport-https

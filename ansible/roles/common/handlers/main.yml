@@ -1,10 +1,8 @@
 ---
+# roles/common/handlers/main.yml
+
 - name: reboot if kernel updated
   reboot:
     reboot_timeout: 300
-    msg: "Rebooting after kernel update"
-
-- name: restart chrony
-  service:
-    name: chronyd
-    state: restarted
+    msg: "Rebooting after kernel upgrade"
+  when: apt_upgrade.changed

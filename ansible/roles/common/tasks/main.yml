@@ -1,6 +1,21 @@
 ---
 # roles/common/tasks/main.yml
-# Applied to all nodes.
+# Applied to all nodes — Debian 12 (Bookworm)
+# Prepares base OS for Kubernetes: swap disabled, kernel modules,
+# sysctl params, package cache updated, ufw enabled
+
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  apt:
+    name: "*"
+    state: latest
+    update_cache: false
+  register: apt_upgrade
+  notify: reboot if kernel updated
 
 - name: Disable swap immediately
   command: swapoff -a
@@ -35,25 +50,39 @@
     reload: true
   loop: "{{ k8s_sysctl_params | default({}) | dict2items }}"
 
-- name: Set SELinux to enforcing
-  selinux:
-    policy: targeted
-    state: enforcing
+- name: Enable ufw firewall
+  block:
+    - name: Install ufw
+      apt:
+        name: ufw
+        state: present
+        update_cache: true
 
-- name: Enable and start firewalld
+    - name: Enable ufw firewall
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Allow SSH through ufw
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow all outgoing traffic
+      ufw:
+        state: enabled
+        policy: allow
+        direction: outgoing
+
+- name: Disable unnecessary services
   service:
-    name: firewalld
-    state: started
-    enabled: true
-
-- name: Install EPEL repository
-  dnf:
-    name: epel-release
-    state: present
-
-- name: Update all packages
-  dnf:
-    name: "*"
-    state: latest
-    update_cache: true
-  notify: reboot if kernel updated
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - bluetooth
+    - avahi-daemon
+  failed_when: false
+  ignore_errors: true
