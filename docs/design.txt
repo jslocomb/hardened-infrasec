@@ -1,0 +1,155 @@
+I want to build a homelab K8 cluster environment to run Ansible AWX, FreeIPA,
+GitLab CE, Splunk SIEM, Zabbix, Graphana, NetBox, and Prometheus. AWX will
+authenticate users via FreeIPA. Ansible playbooks will be handled by Gitlab CE.
+
+How can this be accomplished?
+
+This is a solid homelab stack that mirrors enterprise infrastructure well. Let
+me walk you through the architecture and implementation approach.
+
+Architecture Overview
+Given your Mac mini M4 homelab, you'll want to run this on Proxmox as the
+hypervisor with a Kubernetes cluster running on top via VMs. A lightweight K8s
+distribution like K3s or RKE2 (better for security-focused labs) makes the most
+sense here.
+
+--
+
+Recommended Node Layout
+Since you're working with a single physical host, plan your VMs like this:
+Control Plane — 4 vCPU / 8GB RAM / 100GB disk
+
+  * K8s control plane + etcd
+  * This node should be dedicated; don't schedule workloads here
+
+Worker Node 1 — 6 vCPU / 16GB RAM / 200GB disk
+  * AWX, FreeIPA, GitLab CE
+
+Worker Node 2 — 6 vCPU / 16GB RAM / 200GB disk
+  * Splunk, Zabbix, Grafana, NetBox, Prometheus
+
+Storage can be handled via Longhorn for persistent volumes across nodes, which
+integrates cleanly with K3s/RKE2.
+
+--
+
+Deployment Stack
+Ingress & TLS — Use ingress-nginx with cert-manager. FreeIPA will issue your
+internal CA, and cert-manager can consume it via the ACME or CA issuer. Every
+service gets a proper FQDN like awx.lab.internal, gitlab.lab.internal, etc.
+
+Secrets Management — Use Sealed Secrets or Vault (HashiCorp) to avoid storing
+plaintext credentials in Git. Given your GitLab integration, Sealed Secrets is
+simpler to start with.
+
+Persistent Storage — Longhorn for most services. Splunk and GitLab are the
+heaviest consumers; size those PVCs generously (50GB+ for Splunk indexes, 20GB+
+for GitLab repos).
+
+Namespace Strategy — Isolate services into namespaces: auth, devops, monitoring,
+netops. This gives you clean RBAC boundaries.
+
+--
+
+Service Deployment Order
+Order matters because of dependencies:
+
+1. FreeIPA — Deploy first since everything else authenticates against it. Use
+   the freeipa/freeipa-server container, though running it in K8s is non-trivial
+   due to its need for stable hostname/IP. The cleanest approach is actually
+   running FreeIPA as a VM outside the cluster with a static IP, then referencing
+   it as an external service. This avoids DNS recursion headaches since FreeIPA
+   wants to own DNS.
+
+2. GitLab CE — Deploy via the official gitlab/gitlab-ce Helm chart. Configure
+   LDAP in gitlab.rb to point at FreeIPA's LDAP interface. GitLab becomes your
+   source of truth for all Ansible playbooks.
+
+3. AWX — Deploy via the AWX Operator (the supported K8s-native method).
+   Post-install, configure:
+
+    * LDAP authentication pointing to FreeIPA — AWX has native LDAP settings
+      under Settings > Authentication
+    * A GitLab credential in AWX for SCM access to your playbook repos
+    * Project sync configured to pull from GitLab CE
+
+4. Prometheus + Grafana — Deploy via the kube-prometheus-stack Helm chart, which
+   bundles both plus node-exporter and alertmanager. This is the easiest win in
+   the stack.
+
+5. Zabbix — Deploy via Helm or manifests. Configure Zabbix agents on all
+   nodes/VMs. Grafana has a Zabbix datasource plugin if you want unified
+   dashboards.
+
+6. NetBox — Use the bootc/netbox or netboxcommunity/netbox Helm chart. Hook LDAP
+   auth to FreeIPA here as well — NetBox has native LDAP support via
+   django-auth-ldap.
+
+7. Splunk — The heaviest lift. Use the Splunk Operator for Kubernetes (official,
+   from Splunk). Deploy a StandaloneInstance CRD to start. Configure universal
+   forwarders on your nodes to ship logs to the Splunk indexer. For your
+   portfolio, set up detection rules around failed SSH attempts, sudo
+   escalations, and K8s audit log ingestion.
+
+--
+
+AWX ↔ FreeIPA Authentication
+In AWX under Settings > Authentication > LDAP, configure:
+
+  LDAP URI: ldap://freeipa.lab.internal
+  Bind DN: uid=awx-bind,cn=users,cn=accounts,dc=lab,dc=internal
+  User Search: cn=users,cn=accounts,dc=lab,dc=internal
+  User DN Template: uid=%(user)s,cn=users,cn=accounts,dc=lab,dc=internal
+  Group Search: cn=groups,cn=accounts,dc=lab,dc=internal
+  Require Group: cn=awx-users,cn=groups,cn=accounts,dc=lab,dc=internal
+
+Create a dedicated awx-bind service account in FreeIPA with read-only HBAC. Map
+FreeIPA groups to AWX organizations and roles using LDAP Organization Map and
+LDAP Team Map in AWX settings.
+
+--
+
+AWX ↔ GitLab CE Integration
+In AWX:
+  * Create a Source Control credential using a GitLab deploy token or SSH key
+    scoped to your playbook repo
+  * Create a Project pointing at
+    git@gitlab.lab.internal:infrateam/ansible-playbooks.git
+  * Enable webhook on the AWX project and configure a GitLab webhook to trigger
+    project sync on push — this gives you GitOps-style behavior where pushing to
+    GitLab auto-syncs AWX
+
+For secrets in playbooks, use AWX's Vault credential type backed by a HashiCorp
+Vault instance, or use AWX's built-in credential injection so plaintext secrets
+never live in your GitLab repos.
+
+--
+
+Monitoring Integration
+
+Wire everything together in Grafana:
+
+  * Prometheus datasource for K8s metrics, node metrics, and any app that
+    exposes /metrics
+  * Zabbix datasource plugin for infrastructure-level checks
+  * Splunk datasource plugin for log-based panels
+
+Set up ServiceMonitor CRDs for AWX, GitLab, and NetBox so Prometheus scrapes
+them automatically.
+
+--
+
+What This Demonstrates for Your Portfolio
+
+This stack hits almost every checkbox for CMMC/NIST-aligned infrastructure roles
+— centralized identity (FreeIPA), source-controlled automation (GitLab+AWX),
+SIEM (Splunk), CMDB (NetBox), and observability (Prometheus/Grafana/Zabbix).
+Document each integration as a separate repo with READMEs explaining the security
+rationale, and you'll have compelling evidence for the Impulse Space and similar
+defense contractor interviews.
+
+Want me to go deeper on any specific component — the Splunk Operator setup, the
+AWX Operator deployment manifests, or the FreeIPA LDAP schema for group mapping?
+
+
+
