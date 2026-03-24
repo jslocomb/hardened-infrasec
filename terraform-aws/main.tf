@@ -337,7 +337,7 @@ module "ipa01" {
   source         = "./modules/ec2-node"
   name           = "ipa01"
   ami            = var.rocky9_ami
-  instance_type  = var.instance_type
+  instance_type  = "t3.large"
   subnet_id      = aws_subnet.private.id
   key_name       = aws_key_pair.lab.key_name
   security_group = aws_security_group.lab_nodes.id
@@ -384,3 +384,4 @@ module "k8s_w02" {
   role           = "k8s-worker-monitoring"
   project        = "homelab-k8s"
 }
+

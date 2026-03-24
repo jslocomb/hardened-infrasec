@@ -1,15 +1,14 @@
 ---
 # install_freeipa.yml
-# Installs FreeIPA server in a Docker container on ipa01.
-# FreeIPA server packages are not available for Debian 12 — container is the
-# supported approach on non-RHEL systems.
+# Installs FreeIPA server natively on Rocky Linux 9 on ipa01.
+# Native dnf install -- no containers, no workarounds.
 #
 # CMMC Controls covered:
-#   AC-3.1.1, AC-3.1.2 — Access control via HBAC rules
-#   IA-3.5.1, IA-3.5.2 — Identification and authentication
-#   IA-3.5.4            — Multi-factor authentication (TOTP)
-#   IA-3.5.7            — Password complexity enforcement
-#   SC-3.13.8           — Kerberos encryption for data in transit
+#   AC-3.1.1, AC-3.1.2 -- Access control via HBAC rules
+#   IA-3.5.1, IA-3.5.2 -- Identification and authentication
+#   IA-3.5.4            -- Multi-factor authentication (TOTP)
+#   IA-3.5.7            -- Password complexity enforcement
+#   SC-3.13.8           -- Kerberos encryption for data in transit
 
 - name: Install FreeIPA server on ipa01
   hosts: freeipa
@@ -20,171 +19,157 @@
     ipa_domain: "{{ lab_domain }}"
     ipa_realm: "{{ lab_domain | upper }}"
     ipa_hostname: "ipa01.{{ lab_domain }}"
-    ipa_ip: "{{ freeipa_ip }}"
+    ipa_ip: "{{ ansible_default_ipv4.address }}"
     ipa_admin_password: "FreeIPA_Admin2026!"
     ipa_ds_password: "FreeIPA_DS2026!"
-    docker_data_dir: /opt/freeipa-data
 
   pre_tasks:
-    - name: Set hostname to FQDN for FreeIPA
+    - name: Set FQDN hostname
       hostname:
         name: "ipa01.{{ lab_domain }}"
 
     - name: Ensure FQDN in /etc/hosts
       lineinfile:
         path: /etc/hosts
-        line: "{{ ipa_ip }} ipa01.{{ lab_domain }} ipa01"
+        line: "{{ ansible_default_ipv4.address }} ipa01.{{ lab_domain }} ipa01"
+        state: present
+
+    - name: Ensure reverse lookup works
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 localhost localhost.localdomain"
         state: present
 
   tasks:
-    # ── Docker Installation ───────────────────────────────────────────────────
+    # ── Memory check ─────────────────────────────────────────────────────────
+    - name: Check available memory
+      command: free -m
+      register: memory_check
+      changed_when: false
 
-    - name: Install Docker prerequisites
-      apt:
+    - name: Display memory
+      debug:
+        msg: "{{ memory_check.stdout_lines }}"
+
+    # ── Firewall rules for FreeIPA ────────────────────────────────────────────
+    - name: Open FreeIPA ports in firewalld
+      firewalld:
+        service: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop:
+        - freeipa-ldap
+        - freeipa-ldaps
+        - freeipa-replication
+        - dns
+        - ntp
+        - kerberos
+        - kpasswd
+        - http
+        - https
+
+    # ── Install FreeIPA packages ──────────────────────────────────────────────
+    - name: Install FreeIPA server packages
+      dnf:
         name:
-          - ca-certificates
-          - curl
-          - gnupg
-          - apt-transport-https
+          - freeipa-server
+          - freeipa-server-dns
+          - freeipa-server-trust-ad
         state: present
         update_cache: true
 
-    - name: Add Docker GPG key
-      shell: |
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg | \
-          gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-      args:
-        creates: /etc/apt/keyrings/docker.gpg
+    # ── Run FreeIPA installer ─────────────────────────────────────────────────
+    - name: Check if FreeIPA is already installed
+      stat:
+        path: /etc/ipa/default.conf
+      register: ipa_installed
 
-    - name: Add Docker apt repository
-      copy:
-        dest: /etc/apt/sources.list.d/docker.list
-        content: |
-          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable
-        mode: '0644'
+    - name: Install FreeIPA server (takes 5-10 minutes)
+      command: >
+        ipa-server-install
+        --unattended
+        --realm={{ ipa_realm }}
+        --domain={{ ipa_domain }}
+        --hostname=ipa01.{{ ipa_domain }}
+        --ip-address={{ ipa_ip }}
+        --admin-password={{ ipa_admin_password }}
+        --ds-password={{ ipa_ds_password }}
+        --setup-dns
+        --auto-forwarders
+        --auto-reverse
+        --no-dnssec-validation
+        --no-ntp
+      when: not ipa_installed.stat.exists
+      register: ipa_install
+      async: 900
+      poll: 30
 
-    - name: Install Docker Engine
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
-        state: present
-        update_cache: true
+    - name: Display install result
+      debug:
+        msg: "{{ ipa_install.stdout_lines | default(['FreeIPA already installed']) }}"
+      when: ipa_install is defined
 
-    - name: Enable and start Docker
+    # ── Post-install configuration ────────────────────────────────────────────
+    - name: Enable and start FreeIPA services
       service:
-        name: docker
+        name: ipa
         state: started
         enabled: true
 
-    - name: Verify Docker is running
-      command: docker info
-      register: docker_info
+    - name: Check FreeIPA services status
+      command: ipactl status
+      register: ipa_status
       changed_when: false
 
-    # ── FreeIPA Container Setup ───────────────────────────────────────────────
+    - name: Display FreeIPA status
+      debug:
+        msg: "{{ ipa_status.stdout_lines }}"
 
-    - name: Create FreeIPA data directory
-      file:
-        path: "{{ docker_data_dir }}"
-        state: directory
-        mode: '0750'
+    # ── Create CMMC-required groups ───────────────────────────────────────────
+    - name: Get Kerberos ticket for admin operations
+      command: >
+        kinit admin
+      args:
+        stdin: "{{ ipa_admin_password }}"
+      changed_when: false
+      no_log: true
 
-    - name: Create FreeIPA systemd service
-      copy:
-        dest: /etc/systemd/system/freeipa.service
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=FreeIPA Server Container
-          After=docker.service
-          Requires=docker.service
+    - name: Create k8s-admins group
+      command: ipa group-add k8s-admins --desc="Kubernetes administrators"
+      register: group_result
+      failed_when:
+        - group_result.rc != 0
+        - "'already exists' not in group_result.stderr"
+      changed_when: group_result.rc == 0
 
-          [Service]
-          TimeoutStartSec=600
-          Restart=always
-          ExecStartPre=-/usr/bin/docker stop freeipa
-          ExecStartPre=-/usr/bin/docker rm freeipa
-          ExecStart=/usr/bin/docker run --rm --name freeipa \
-            --hostname ipa01.{{ lab_domain }} \
-            -e IPA_SERVER_IP={{ ipa_ip }} \
-            -p 53:53/udp \
-            -p 53:53/tcp \
-            -p 80:80 \
-            -p 443:443 \
-            -p 389:389 \
-            -p 636:636 \
-            -p 88:88 \
-            -p 88:88/udp \
-            -p 464:464 \
-            -p 464:464/udp \
-            -p 123:123/udp \
-            -v {{ docker_data_dir }}:/data:Z \
-            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
-            freeipa/freeipa-server:rocky-9 \
-            ipa-server-install \
-            --unattended \
-            --realm={{ ipa_realm }} \
-            --domain={{ ipa_domain }} \
-            --hostname=ipa01.{{ ipa_domain }} \
-            --ip-address={{ ipa_ip }} \
-            --admin-password={{ ipa_admin_password }} \
-            --ds-password={{ ipa_ds_password }} \
-            --no-ntp \
-            --setup-dns \
-            --auto-forwarders \
-            --auto-reverse \
-            --no-dnssec-validation
-          ExecStop=/usr/bin/docker stop freeipa
+    - name: Create k8s-users group
+      command: ipa group-add k8s-users --desc="Kubernetes users"
+      register: group_result
+      failed_when:
+        - group_result.rc != 0
+        - "'already exists' not in group_result.stderr"
+      changed_when: group_result.rc == 0
 
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Open required ports in ufw
-      ufw:
-        rule: allow
-        port: "{{ item.port }}"
-        proto: "{{ item.proto }}"
-      loop:
-        - { port: '53', proto: 'tcp' }
-        - { port: '53', proto: 'udp' }
-        - { port: '80', proto: 'tcp' }
-        - { port: '443', proto: 'tcp' }
-        - { port: '389', proto: 'tcp' }
-        - { port: '636', proto: 'tcp' }
-        - { port: '88', proto: 'tcp' }
-        - { port: '88', proto: 'udp' }
-        - { port: '464', proto: 'tcp' }
-        - { port: '464', proto: 'udp' }
-        - { port: '123', proto: 'udp' }
-
-    - name: Pull FreeIPA container image
-      command: docker pull freeipa/freeipa-server:rocky-9
-      register: docker_pull
-      changed_when: "'Downloaded newer image' in docker_pull.stdout or 'Pull complete' in docker_pull.stdout"
-
-    - name: Reload systemd
-      systemd:
-        daemon_reload: true
-
-    - name: Enable FreeIPA service (start manually first time)
-      systemd:
-        name: freeipa
-        enabled: true
+    - name: Create cluster-admins group
+      command: ipa group-add cluster-admins --desc="Cluster administrators - CMMC privileged access"
+      register: group_result
+      failed_when:
+        - group_result.rc != 0
+        - "'already exists' not in group_result.stderr"
+      changed_when: group_result.rc == 0
 
   post_tasks:
-    - name: Display FreeIPA install instructions
+    - name: Display FreeIPA summary
       debug:
         msg:
-          - "FreeIPA container image pulled and service configured."
-          - "To start initial installation (takes 10-15 minutes):"
-          - "  ssh ipa01"
-          - "  sudo systemctl start freeipa"
-          - "  sudo journalctl -fu freeipa"
+          - "FreeIPA installation complete"
+          - "Web UI: https://ipa01.{{ lab_domain }}"
+          - "Admin user: admin"
           - "Admin password: {{ ipa_admin_password }}"
-          - "Domain: {{ ipa_domain }}"
           - "Realm: {{ ipa_realm }}"
+          - "Domain: {{ ipa_domain }}"
+          - "DNS server: {{ ipa_ip }}"
+          - ""
+          - "Next step: Update k8s nodes to use FreeIPA DNS"
+          - "  ansible-playbook playbooks/update_dns.yml"

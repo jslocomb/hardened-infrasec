@@ -31,7 +31,7 @@ variable "admin_cidr" {
 variable "rocky9_ami" {
   description = "Rocky Linux 9 AMI ID for us-west-2"
   type        = string
-  default     = "ami-023eeffe03f0dd455"
+  default     = "ami-002f381c4f976fe07"
 }
 
 variable "instance_type" {
