@@ -1,21 +1,15 @@
 ---
 # roles/common/tasks/main.yml
-# Applied to all nodes — Debian 12 (Bookworm)
+# Applied to all nodes — Rocky Linux 9 on AWS EC2
 # Prepares base OS for Kubernetes: swap disabled, kernel modules,
-# sysctl params, package cache updated, ufw enabled
+# sysctl params, packages updated, firewalld configured, SELinux enforcing
 
-- name: Update apt cache
-  apt:
-    update_cache: true
-    cache_valid_time: 3600
-
-- name: Upgrade all packages
-  apt:
+- name: Update all packages
+  dnf:
     name: "*"
     state: latest
-    update_cache: false
-  register: apt_upgrade
-  notify: reboot if kernel updated
+    update_cache: true
+  register: dnf_upgrade
 
 - name: Disable swap immediately
   command: swapoff -a
@@ -50,31 +44,30 @@
     reload: true
   loop: "{{ k8s_sysctl_params | default({}) | dict2items }}"
 
-- name: Enable ufw firewall
+- name: Set SELinux to enforcing
+  selinux:
+    policy: targeted
+    state: enforcing
+
+- name: Install and configure firewalld
   block:
-    - name: Install ufw
-      apt:
-        name: ufw
+    - name: Install firewalld
+      dnf:
+        name: firewalld
         state: present
-        update_cache: true
 
-    - name: Enable ufw firewall
-      ufw:
+    - name: Enable and start firewalld
+      service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Allow SSH through firewalld
+      firewalld:
+        service: ssh
+        permanent: true
         state: enabled
-        policy: deny
-        direction: incoming
-
-    - name: Allow SSH through ufw
-      ufw:
-        rule: allow
-        port: '22'
-        proto: tcp
-
-    - name: Allow all outgoing traffic
-      ufw:
-        state: enabled
-        policy: allow
-        direction: outgoing
+        immediate: true
 
 - name: Disable unnecessary services
   service:
@@ -83,6 +76,5 @@
     enabled: false
   loop:
     - bluetooth
-    - avahi-daemon
   failed_when: false
   ignore_errors: true

@@ -1,7 +1,7 @@
 ---
 # provision_vms.yml
 # Initial VM setup applied to all nodes immediately after Terraform provisioning.
-# Debian 12 (Bookworm) — apt instead of dnf, ufw instead of firewalld, no SELinux
+# Rocky Linux 9 on AWS EC2 — dnf, firewalld, SELinux enforcing
 
 - name: Initial VM provisioning
   hosts: all
@@ -23,7 +23,7 @@
   tasks:
     - name: Set hostname from inventory
       hostname:
-        name: "{{ inventory_hostname }}"
+        name: "{{ inventory_hostname }}.{{ lab_domain }}"
 
     - name: Update /etc/hosts with all cluster nodes
       lineinfile:
@@ -33,11 +33,10 @@
       loop: "{{ groups['all'] }}"
 
     - name: Install base packages
-      apt:
+      dnf:
         name: "{{ base_packages }}"
         state: present
         update_cache: true
-        cache_valid_time: 3600
 
     - name: Set timezone to UTC
       timezone:
@@ -45,7 +44,7 @@
 
     - name: Configure chrony NTP
       copy:
-        dest: /etc/chrony/chrony.conf
+        dest: /etc/chrony.conf
         owner: root
         group: root
         mode: '0644'
@@ -59,13 +58,13 @@
           logdir /var/log/chrony
       notify: restart chrony
 
-    - name: Enable and start chrony
+    - name: Enable and start chronyd
       service:
-        name: chrony
+        name: chronyd
         state: started
         enabled: true
 
-    - name: Configure resolv.conf with temporary DNS until FreeIPA is up
+    - name: Configure DNS to use 8.8.8.8 until FreeIPA is up
       copy:
         dest: /etc/resolv.conf
         content: |
@@ -73,9 +72,10 @@
           nameserver 8.8.8.8
           nameserver 8.8.4.4
         mode: '0644'
+      when: inventory_hostname != 'ipa01'
 
   handlers:
     - name: restart chrony
       service:
-        name: chrony
+        name: chronyd
         state: restarted

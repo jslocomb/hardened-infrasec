@@ -5,4 +5,9 @@
   reboot:
     reboot_timeout: 300
     msg: "Rebooting after kernel upgrade"
-  when: apt_upgrade.changed
+  when: dnf_upgrade.changed
+
+- name: restart chrony
+  service:
+    name: chronyd
+    state: restarted

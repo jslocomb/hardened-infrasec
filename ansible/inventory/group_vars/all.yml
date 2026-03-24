@@ -2,18 +2,16 @@
 # ─── DNS / Domain ─────────────────────────────────────────────────────────────
 lab_domain: lab.internal
 freeipa_hostname: ipa01.lab.internal
-freeipa_ip: 192.168.10.5
+freeipa_ip: 10.0.10.121
 
 # ─── K8s Cluster ──────────────────────────────────────────────────────────────
-k8s_cp_ip: 192.168.10.10
+k8s_cp_ip: 10.0.10.154
 rke2_version: v1.28.6+rke2r1
 rke2_cni: canal
 rke2_profile: cis-1.23
 
-# ─── MetalLB IP Pool ──────────────────────────────────────────────────────────
-metallb_ip_range: 192.168.10.200-192.168.10.220
-
-# ─── Ingress ──────────────────────────────────────────────────────────────────
+# ─── MetalLB / Ingress ────────────────────────────────────────────────────────
+metallb_ip_range: 10.0.10.200-10.0.10.220
 ingress_class: nginx
 
 # ─── NTP ──────────────────────────────────────────────────────────────────────
@@ -21,28 +19,34 @@ ntp_servers:
   - 0.pool.ntp.org
   - 1.pool.ntp.org
 
-# ─── Base packages (Debian 12) ────────────────────────────────────────────────
-# Note: switched from Rocky Linux 9 (dnf) to Debian 12 (apt)
-# - bind-utils → dnsutils
-# - chrony → chrony (same)
-# - audit → auditd
-# - no firewalld → ufw
+# ─── K8s Kernel Requirements ──────────────────────────────────────────────────
+k8s_kernel_modules:
+  - overlay
+  - br_netfilter
+
+k8s_sysctl_params:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1
+  net.ipv6.conf.all.forwarding: 1
+  fs.inotify.max_user_watches: 524288
+  fs.inotify.max_user_instances: 512
+
+# ─── Base packages (Rocky Linux 9 / dnf) ─────────────────────────────────────
 base_packages:
   - vim
   - curl
   - wget
   - git
   - bash-completion
-  - dnsutils
+  - bind-utils
   - net-tools
   - tcpdump
   - lsof
-  - htop
-  - iotop
-  - auditd
+  - audit
   - aide
   - chrony
-  - ufw
+  - firewalld
+  - python3
   - ca-certificates
-  - gnupg
-  - apt-transport-https
+  - epel-release
