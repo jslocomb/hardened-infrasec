@@ -41,3 +41,5 @@ __pycache__/
 # Helm
 charts/
 *.tgz
+terraform-aws/terraform.tfvars
+terraform-aws/terraform.tfstate*
