@@ -1,0 +1,29 @@
+---
+# update_dns.yml
+# Updates DNS on all K8s nodes to use FreeIPA as the resolver.
+# Run after FreeIPA is installed and confirmed running.
+
+- name: Update DNS to use FreeIPA
+  hosts: k8s_nodes
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Set FreeIPA as primary DNS
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          search lab.internal
+          nameserver {{ freeipa_ip }}
+          nameserver 8.8.8.8
+        mode: '0644'
+
+    - name: Verify DNS resolution via FreeIPA
+      command: dig +short ipa01.lab.internal @{{ freeipa_ip }}
+      register: dns_test
+      changed_when: false
+      failed_when: dns_test.stdout == ''
+
+    - name: Display DNS test result
+      debug:
+        msg: "ipa01.lab.internal resolves to: {{ dns_test.stdout }}"

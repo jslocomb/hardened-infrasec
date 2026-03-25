@@ -5,8 +5,8 @@ freeipa_hostname: ipa01.lab.internal
 freeipa_ip: 10.0.10.113
 
 # ─── K8s Cluster ──────────────────────────────────────────────────────────────
-k8s_cp_ip: 10.0.10.154
-rke2_version: v1.28.6+rke2r1
+k8s_cp_ip: 10.0.10.146
+rke2_version: v1.30.2+rke2r1
 rke2_cni: canal
 rke2_profile: cis-1.23
 

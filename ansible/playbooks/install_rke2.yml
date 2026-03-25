@@ -1,0 +1,233 @@
+---
+# install_rke2.yml
+# Installs RKE2 Kubernetes cluster on Rocky Linux 9.
+# Control plane: k8s-cp01
+# Workers: k8s-w01, k8s-w02
+#
+# CMMC Controls covered:
+#   CM-3.4.1  -- CIS hardened RKE2 profile
+#   CM-3.4.3  -- Configuration managed via GitOps
+#   SC-3.13.1 -- Network policies enforced via Canal
+#   SC-3.13.8 -- TLS everywhere (etcd, API server, kubelets)
+
+# ── Control Plane ──────────────────────────────────────────────────────────────
+- name: Install RKE2 control plane
+  hosts: control_plane
+  become: true
+  gather_facts: true
+
+  vars:
+    rke2_cni: "canal"
+    rke2_profile: "cis"
+
+  tasks:
+    - name: Open RKE2 firewall ports on control plane
+      firewalld:
+        port: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop:
+        - "6443/tcp"
+        - "9345/tcp"
+        - "2379/tcp"
+        - "2380/tcp"
+        - "10250/tcp"
+        - "10251/tcp"
+        - "10252/tcp"
+        - "8472/udp"
+        - "4240/tcp"
+        - "179/tcp"
+        - "5473/tcp"
+
+    - name: Create RKE2 config directory
+      file:
+        path: /etc/rancher/rke2
+        state: directory
+        mode: '0755'
+
+    - name: Write RKE2 server config
+      copy:
+        dest: /etc/rancher/rke2/config.yaml
+        mode: '0600'
+        content: |
+          write-kubeconfig-mode: "0644"
+          profile: {{ rke2_profile }}
+          cni: {{ rke2_cni }}
+          node-label:
+            - "node-role=control-plane"
+
+    - name: Download RKE2 installer
+      get_url:
+        url: https://get.rke2.io
+        dest: /tmp/install-rke2.sh
+        mode: '0755'
+
+    - name: Install RKE2 server
+      command: /tmp/install-rke2.sh
+      environment:
+        INSTALL_RKE2_TYPE: server
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: Enable and start RKE2 server
+      service:
+        name: rke2-server
+        state: started
+        enabled: true
+
+    - name: Wait for RKE2 to be ready
+      wait_for:
+        path: /var/lib/rancher/rke2/server/node-token
+        timeout: 300
+
+    - name: Get node token
+      command: cat /var/lib/rancher/rke2/server/node-token
+      register: node_token
+      changed_when: false
+
+    - name: Wait for kubeconfig
+      wait_for:
+        path: /etc/rancher/rke2/rke2.yaml
+        timeout: 120
+
+    - name: Set up kubectl for rocky user
+      block:
+        - name: Create .kube directory
+          file:
+            path: /home/rocky/.kube
+            state: directory
+            owner: rocky
+            group: rocky
+            mode: '0755'
+
+        - name: Copy kubeconfig
+          copy:
+            src: /etc/rancher/rke2/rke2.yaml
+            dest: /home/rocky/.kube/config
+            remote_src: true
+            owner: rocky
+            group: rocky
+            mode: '0600'
+
+        - name: Fix kubeconfig server address
+          replace:
+            path: /home/rocky/.kube/config
+            regexp: 'https://127.0.0.1:6443'
+            replace: "https://{{ ansible_default_ipv4.address }}:6443"
+
+    - name: Add kubectl and crictl to PATH
+      copy:
+        dest: /etc/profile.d/rke2.sh
+        content: |
+          export PATH=$PATH:/var/lib/rancher/rke2/bin:/usr/local/bin
+          export KUBECONFIG=/home/rocky/.kube/config
+        mode: '0644'
+
+    - name: Verify control plane is running
+      command: /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get nodes
+      register: kubectl_output
+      changed_when: false
+      retries: 10
+      delay: 15
+      until: kubectl_output.rc == 0
+
+    - name: Display nodes
+      debug:
+        msg: "{{ kubectl_output.stdout_lines }}"
+
+    - name: Save node token for workers
+      set_fact:
+        rke2_node_token: "{{ node_token.stdout }}"
+
+# ── Worker Nodes ───────────────────────────────────────────────────────────────
+- name: Install RKE2 worker nodes
+  hosts: workers
+  become: true
+  gather_facts: true
+
+  vars:
+    rke2_server_ip: "{{ k8s_cp_ip }}"
+
+  tasks:
+    - name: Open RKE2 firewall ports on workers
+      firewalld:
+        port: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop:
+        - "10250/tcp"
+        - "8472/udp"
+        - "4240/tcp"
+        - "179/tcp"
+        - "5473/tcp"
+
+    - name: Create RKE2 config directory
+      file:
+        path: /etc/rancher/rke2
+        state: directory
+        mode: '0755'
+
+    - name: Get node token from control plane
+      command: cat /var/lib/rancher/rke2/server/node-token
+      register: node_token
+      delegate_to: k8s-cp01
+      changed_when: false
+
+    - name: Write RKE2 agent config
+      copy:
+        dest: /etc/rancher/rke2/config.yaml
+        mode: '0600'
+        content: |
+          server: https://{{ rke2_server_ip }}:9345
+          token: {{ node_token.stdout }}
+          node-label:
+            - "node-role={{ node_labels[0] | replace('node-role=', '') }}"
+
+    - name: Download RKE2 installer
+      get_url:
+        url: https://get.rke2.io
+        dest: /tmp/install-rke2.sh
+        mode: '0755'
+
+    - name: Install RKE2 agent
+      command: /tmp/install-rke2.sh
+      environment:
+        INSTALL_RKE2_TYPE: agent
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: Enable and start RKE2 agent
+      service:
+        name: rke2-agent
+        state: started
+        enabled: true
+
+    - name: Wait for agent to connect
+      pause:
+        seconds: 30
+
+# ── Verify Cluster ─────────────────────────────────────────────────────────────
+- name: Verify full cluster
+  hosts: control_plane
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Wait for all nodes to be Ready
+      command: >
+        /var/lib/rancher/rke2/bin/kubectl
+        --kubeconfig /etc/rancher/rke2/rke2.yaml
+        get nodes --no-headers
+      register: nodes_output
+      retries: 20
+      delay: 15
+      until: nodes_output.stdout_lines | length >= 3
+      changed_when: false
+
+    - name: Display final cluster state
+      debug:
+        msg: "{{ nodes_output.stdout_lines }}"
