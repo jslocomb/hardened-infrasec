@@ -350,7 +350,7 @@ module "k8s_cp01" {
   source         = "./modules/ec2-node"
   name           = "k8s-cp01"
   ami            = var.rocky9_ami
-  instance_type  = var.instance_type
+  instance_type  = "t3.large"
   subnet_id      = aws_subnet.private.id
   key_name       = aws_key_pair.lab.key_name
   security_group = aws_security_group.lab_nodes.id
@@ -363,7 +363,7 @@ module "k8s_w01" {
   source         = "./modules/ec2-node"
   name           = "k8s-w01"
   ami            = var.rocky9_ami
-  instance_type  = var.instance_type
+  instance_type  = "t3.large"
   subnet_id      = aws_subnet.private.id
   key_name       = aws_key_pair.lab.key_name
   security_group = aws_security_group.lab_nodes.id
@@ -376,7 +376,7 @@ module "k8s_w02" {
   source         = "./modules/ec2-node"
   name           = "k8s-w02"
   ami            = var.rocky9_ami
-  instance_type  = var.instance_type
+  instance_type  = "t3.large"
   subnet_id      = aws_subnet.private.id
   key_name       = aws_key_pair.lab.key_name
   security_group = aws_security_group.lab_nodes.id
