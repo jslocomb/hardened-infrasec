@@ -1,0 +1,29 @@
+# prometheus-values.yaml
+# kube-prometheus-stack Helm values for homelab-k8s
+# Deployed to monitoring namespace in RKE2 cluster
+# Grafana admin password: Grafana_Admin2026!
+
+grafana:
+  adminPassword: "Grafana_Admin2026!"
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources:
+      requests:
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        memory: 128Mi
+      limits:
+        memory: 256Mi
