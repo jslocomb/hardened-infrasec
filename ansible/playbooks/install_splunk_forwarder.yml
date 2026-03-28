@@ -1,0 +1,141 @@
+---
+# install_splunk_forwarder.yml
+# Installs Splunk Universal Forwarder on all nodes except k8s-w02 (Splunk server)
+# Configures forwarding to Splunk on k8s-w02:9997
+# Collects: auditd, syslog, secure, messages, RKE2 logs
+#
+# CMMC Controls covered:
+#   AU-3.3.1 -- Create and retain audit records
+#   AU-3.3.2 -- Ensure actions can be traced to users
+#   SI-3.14.6 -- Monitor systems for attacks
+#   SI-3.14.7 -- Identify unauthorized use
+
+- name: Install Splunk Universal Forwarder
+  hosts: freeipa:k8s_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    splunk_forwarder_url: "https://download.splunk.com/products/universalforwarder/releases/10.2.1/linux/splunkforwarder-10.2.1-c892b66d163d.x86_64.rpm"
+    splunk_server_ip: "10.0.10.117"
+    splunk_server_port: "9997"
+    splunk_admin_pass: "Splunk_Admin2026!"
+
+  tasks:
+    - name: Check if Universal Forwarder already installed
+      stat:
+        path: /opt/splunkforwarder/bin/splunk
+      register: uf_installed
+
+    - name: Download Universal Forwarder RPM
+      get_url:
+        url: "{{ splunk_forwarder_url }}"
+        dest: /tmp/splunkforwarder.rpm
+        mode: '0644'
+      when: not uf_installed.stat.exists
+
+    - name: Install Universal Forwarder
+      dnf:
+        name: /tmp/splunkforwarder.rpm
+        state: present
+        disable_gpg_check: true
+      when: not uf_installed.stat.exists
+
+    - name: Start and accept license on first run
+      command: >
+        /opt/splunkforwarder/bin/splunk start
+        --accept-license --answer-yes --no-prompt
+        --seed-passwd {{ splunk_admin_pass }}
+        --run-as-root
+      when: not uf_installed.stat.exists
+      register: splunk_start
+      failed_when:
+        - splunk_start.rc != 0
+        - "'already running' not in splunk_start.stdout"
+
+    - name: Configure forwarding to Splunk server
+      command: >
+        /opt/splunkforwarder/bin/splunk add forward-server
+        {{ splunk_server_ip }}:{{ splunk_server_port }}
+        -auth admin:{{ splunk_admin_pass }}
+      register: fwd_result
+      failed_when:
+        - fwd_result.rc != 0
+        - "'already configured' not in fwd_result.stdout"
+        - "'already exists' not in fwd_result.stderr"
+      changed_when: fwd_result.rc == 0
+
+    - name: Add auditd log monitor
+      command: >
+        /opt/splunkforwarder/bin/splunk add monitor /var/log/audit/audit.log
+        -index linux_audit
+        -sourcetype linux_audit
+        -auth admin:{{ splunk_admin_pass }}
+      register: audit_result
+      failed_when:
+        - audit_result.rc != 0
+        - "'already exists' not in audit_result.stderr"
+        - "'already monitored' not in audit_result.stdout"
+      changed_when: audit_result.rc == 0
+
+    - name: Add secure log monitor
+      command: >
+        /opt/splunkforwarder/bin/splunk add monitor /var/log/secure
+        -index linux_secure
+        -sourcetype linux_secure
+        -auth admin:{{ splunk_admin_pass }}
+      register: secure_result
+      failed_when:
+        - secure_result.rc != 0
+        - "'already exists' not in secure_result.stderr"
+        - "'already monitored' not in secure_result.stdout"
+      changed_when: secure_result.rc == 0
+
+    - name: Add messages log monitor
+      command: >
+        /opt/splunkforwarder/bin/splunk add monitor /var/log/messages
+        -index linux_syslog
+        -sourcetype syslog
+        -auth admin:{{ splunk_admin_pass }}
+      register: messages_result
+      failed_when:
+        - messages_result.rc != 0
+        - "'already exists' not in messages_result.stderr"
+        - "'already monitored' not in messages_result.stdout"
+      changed_when: messages_result.rc == 0
+
+    - name: Add RKE2 logs on k8s nodes
+      command: >
+        /opt/splunkforwarder/bin/splunk add monitor /var/log/pods
+        -index k8s_logs
+        -sourcetype k8s_pods
+        -auth admin:{{ splunk_admin_pass }}
+      register: k8s_result
+      failed_when:
+        - k8s_result.rc != 0
+        - "'already exists' not in k8s_result.stderr"
+        - "'already monitored' not in k8s_result.stdout"
+        - "'No such file' not in k8s_result.stderr"
+      changed_when: k8s_result.rc == 0
+      when: inventory_hostname in groups['k8s_nodes']
+
+    - name: Enable boot-start
+      command: >
+        /opt/splunkforwarder/bin/splunk enable boot-start
+        --run-as-root -systemd-managed 1
+      register: boot_result
+      failed_when:
+        - boot_result.rc != 0
+        - "'already enabled' not in boot_result.stdout"
+      changed_when: boot_result.rc == 0
+
+    - name: Restart Universal Forwarder
+      command: /opt/splunkforwarder/bin/splunk restart --run-as-root
+      changed_when: true
+
+    - name: Open firewall for Splunk management port
+      firewalld:
+        port: 8089/tcp
+        permanent: true
+        state: enabled
+        immediate: true
