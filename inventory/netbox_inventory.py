@@ -8,15 +8,16 @@ import urllib.request
 NETBOX_API = os.environ.get('NETBOX_API', 'http://netbox.netbox.svc.cluster.local')
 NETBOX_TOKEN = os.environ.get('NETBOX_TOKEN', '')
 
-headers = {
-    'Authorization': f'Token {NETBOX_TOKEN}',
-    'Content-Type': 'application/json'
-}
+def get_headers():
+    h = {'Content-Type': 'application/json'}
+    if NETBOX_TOKEN:
+        h['Authorization'] = f'Token {NETBOX_TOKEN}'
+    return h
 
 def get_devices():
     req = urllib.request.Request(
         f'{NETBOX_API}/api/dcim/devices/?limit=100',
-        headers=headers
+        headers=get_headers()
     )
     with urllib.request.urlopen(req) as r:
         return json.loads(r.read())['results']
@@ -50,4 +51,7 @@ def build_inventory():
     return inventory
 
 if __name__ == '__main__':
-    print(json.dumps(build_inventory(), indent=2))
+    if len(sys.argv) > 1 and sys.argv[1] == '--host':
+        print(json.dumps({}))
+    else:
+        print(json.dumps(build_inventory(), indent=2))
