@@ -1,5 +1,12 @@
 # homelab-k8s — CMMC Level 2 Security Automation Portfolio
 
+![AWS](https://img.shields.io/badge/AWS-us--west--2-FF9900?style=flat&logo=amazon-aws&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/RKE2-v1.30.2-326CE5?style=flat&logo=kubernetes&logoColor=white)
+![Rocky Linux](https://img.shields.io/badge/Rocky_Linux-9.7-10B981?style=flat&logo=rockylinux&logoColor=white)
+![CMMC](https://img.shields.io/badge/CMMC-Level_2-003087?style=flat)
+![NIST](https://img.shields.io/badge/NIST_800--171-12_Controls-003087?style=flat)
+![License](https://img.shields.io/badge/License-MIT-6B7280?style=flat)
+
 A production-grade security automation lab built on AWS, demonstrating enterprise identity management, infrastructure automation, and compliance monitoring aligned to NIST SP 800-171 / CMMC Level 2 controls.
 
 **Author:** Jason A. Slocomb  
