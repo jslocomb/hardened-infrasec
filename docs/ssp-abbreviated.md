@@ -156,7 +156,7 @@ This section summarizes the implementation of NIST SP 800-171 Rev 2 controls rel
 
 **Implementation:** AIDE (Advanced Intrusion Detection Environment) 0.16 is deployed on all five nodes. Initial baselines were generated post-deployment and stored at `/var/lib/aide/aide.db`. Daily integrity checks run at 02:00 UTC via cron and results are forwarded to Splunk. Deviations from baseline generate alerts.
 
-**Evidence:** `docs/phase8-aide-falco.md`, `docs/screenshots/falco-detections.png`
+**Evidence:** `docs/aide-falco.md`, `docs/screenshots/falco-detections.png`
 
 **Status:** Implemented
 
@@ -236,7 +236,7 @@ This section summarizes the implementation of NIST SP 800-171 Rev 2 controls rel
 
 **Implementation:** Falco 0.43.0 runs as a DaemonSet on all Kubernetes nodes using the legacy eBPF driver. Falco monitors syscalls in real time and generates alerts for suspicious activity including privilege escalation attempts, unexpected network connections, and container escape patterns. Alerts are forwarded to Splunk.
 
-**Evidence:** `docs/screenshots/falco-detections.png`, `docs/phase8-aide-falco.md`
+**Evidence:** `docs/screenshots/falco-detections.png`, `docs/aide-falco.md`
 
 **Status:** Implemented
 
