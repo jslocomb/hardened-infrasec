@@ -1,6 +1,6 @@
 # FreeIPA Setup Guide
 
-FreeIPA runs as a standalone VM (`ipa01.lab.internal`, `192.168.10.5`) outside the K8s cluster.
+FreeIPA runs as a standalone VM (`ipa01.lab.internal`, `10.0.10.113`) outside the K8s cluster.
 It provides LDAP, Kerberos, DNS, and CA services for the entire homelab.
 
 ## Initial Install
@@ -27,7 +27,6 @@ bash /home/ansible/freeipa/install-freeipa.sh
 | `awx-bind` | AWX | LDAP read-only |
 | `gitlab-bind` | GitLab CE | LDAP read-only |
 | `grafana-bind` | Grafana | LDAP read-only |
-| `zabbix-bind` | Zabbix | LDAP read-only |
 | `netbox-bind` | NetBox | LDAP read-only |
 
 ## Application Groups
@@ -40,4 +39,3 @@ bash /home/ansible/freeipa/install-freeipa.sh
 | `grafana-admins` | Grafana admin users |
 | `netbox-users` | NetBox read/write |
 | `netbox-admins` | NetBox admin |
-| `zabbix-admins` | Zabbix admin users |

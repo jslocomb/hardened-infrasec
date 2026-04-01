@@ -4,7 +4,7 @@
 rke2_server_config:
   tls-san:
     - "k8s-cp01.lab.internal"
-    - "192.168.10.10"
+    - "10.0.10.146"
     - "kubernetes.lab.internal"
   cni: "canal"
   profile: "cis-1.23"

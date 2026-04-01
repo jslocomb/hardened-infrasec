@@ -22,7 +22,7 @@
 - name: Add management subnet to trusted zone
   firewalld:
     zone: trusted
-    source: "{{ management_subnet | default('192.168.10.0/24') }}"
+    source: "{{ management_subnet | default('10.0.10.0/24') }}"
     permanent: true
     state: enabled
 
@@ -44,7 +44,7 @@
   loop: "{{ rke2_agent_firewall_ports }}"
   when: inventory_hostname in groups['workers']
 
-- name: Open Longhorn ports
+- name: Open storage ports
   firewalld:
     zone: trusted
     port: "{{ item }}"

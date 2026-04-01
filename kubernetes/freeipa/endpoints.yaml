@@ -6,7 +6,7 @@ metadata:
   namespace: auth
 subsets:
   - addresses:
-      - ip: 192.168.10.5
+      - ip: 10.0.10.113
     ports:
       - name: ldap
         port: 389

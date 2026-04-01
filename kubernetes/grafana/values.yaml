@@ -6,11 +6,10 @@ adminPassword: "CHANGEME"
 
 persistence:
   enabled: true
-  storageClassName: longhorn
+  storageClassName: local-path
   size: 5Gi
 
 plugins:
-  - grafana-zabbix-app
   - grafana-splunk-datasource
   - grafana-piechart-panel
 

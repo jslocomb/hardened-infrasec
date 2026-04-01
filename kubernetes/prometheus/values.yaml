@@ -7,7 +7,7 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
-          storageClassName: longhorn
+          storageClassName: local-path
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
@@ -20,7 +20,7 @@ alertmanager:
     storage:
       volumeClaimTemplate:
         spec:
-          storageClassName: longhorn
+          storageClassName: local-path
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
@@ -47,7 +47,7 @@ grafana:
   adminPassword: "CHANGEME"  # Override with vault value in playbook
   persistence:
     enabled: true
-    storageClassName: longhorn
+    storageClassName: local-path
     size: 5Gi
   ingress:
     enabled: false  # Managed by grafana/ingress.yaml

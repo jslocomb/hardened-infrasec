@@ -1,5 +1,5 @@
 ---
-management_subnet: "192.168.10.0/24"
+management_subnet: "10.0.10.0/24"
 
 rke2_server_firewall_ports:
   - "6443/tcp"

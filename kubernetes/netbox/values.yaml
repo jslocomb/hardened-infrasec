@@ -22,7 +22,7 @@ postgresql:
   primary:
     persistence:
       enabled: true
-      storageClass: longhorn
+      storageClass: local-path
       size: 10Gi
 
 redis:
@@ -30,7 +30,7 @@ redis:
 
 persistence:
   enabled: true
-  storageClass: longhorn
+  storageClass: local-path
   size: 5Gi
 
 resources:

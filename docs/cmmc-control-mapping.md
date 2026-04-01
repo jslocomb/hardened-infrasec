@@ -23,7 +23,7 @@ Useful for demonstrating CMMC-awareness in interviews and portfolio reviews.
 |---|---|---|
 | 3.3.1 | Create system audit logs | auditd on all nodes, K8s audit log enabled on API server |
 | 3.3.2 | Ensure audit logs cannot be deleted | Splunk indexes, rsyslog to centralized SIEM |
-| 3.3.4 | Alert on audit log failures | Zabbix + Prometheus Alertmanager |
+| 3.3.4 | Alert on audit log failures | Splunk + Prometheus Alertmanager |
 | 3.3.5 | Correlate audit logs | Splunk correlation searches across OS, K8s, and application logs |
 
 ### CM — Configuration Management (3.4.x)
@@ -59,7 +59,7 @@ Useful for demonstrating CMMC-awareness in interviews and portfolio reviews.
 
 | Practice | Control | Implementation |
 |---|---|---|
-| 3.14.1 | Identify and manage vulnerabilities | Zabbix vulnerability scanning, dnf-automatic |
+| 3.14.1 | Identify and manage vulnerabilities | Falco runtime detection, dnf-automatic |
 | 3.14.2 | Provide protection from malicious code | CIS-hardened OS baseline, SELinux enforcing |
 | 3.14.3 | Monitor system security alerts | Splunk SIEM correlation, Prometheus alerting |
 | 3.14.6 | Monitor systems to detect attacks | Splunk detection rules (failed SSH, privilege escalation) |
