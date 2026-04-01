@@ -1,0 +1,113 @@
+<svg width="100%" viewBox="0 0 680 640" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+<style>
+  text { font-family: sans-serif; }
+  .th { font-size: 14px; font-weight: 500; fill: #0C447C; }
+  .ts { font-size: 12px; fill: #185FA5; }
+  .arr { stroke: #888; stroke-width: 1.5; fill: none; }
+
+  /* containers */
+  .vpc-bg   { fill: #E6F1FB; stroke: #378ADD; }
+  .priv-bg  { fill: #E1F5EE; stroke: #1D9E75; }
+  .rke-bg   { fill: #dceefb; stroke: #378ADD; }
+
+  /* nodes */
+  .bastion-bg  { fill: #F1EFE8; stroke: #888780; }
+  .bastion-t   { fill: #2C2C2A; }
+  .bastion-s   { fill: #5F5E5A; }
+
+  .ipa-bg  { fill: #EEEDFE; stroke: #534AB7; }
+  .ipa-t   { fill: #26215C; }
+  .ipa-s   { fill: #3C3489; }
+
+  .cp-bg   { fill: #FAEEDA; stroke: #BA7517; }
+  .cp-t    { fill: #412402; }
+  .cp-s    { fill: #633806; }
+
+  .w01-bg  { fill: #FAECE7; stroke: #993C1D; }
+  .w01-t   { fill: #4A1B0C; }
+  .w01-s   { fill: #712B13; }
+
+  .w02-bg  { fill: #EAF3DE; stroke: #3B6D11; }
+  .w02-t   { fill: #173404; }
+  .w02-s   { fill: #27500A; }
+
+  .all-bg  { fill: #F1EFE8; stroke: #888780; }
+  .all-t   { fill: #2C2C2A; }
+  .all-s   { fill: #5F5E5A; }
+</style>
+</defs>
+
+<!-- AWS VPC outer container -->
+<rect x="20" y="20" width="640" height="600" rx="20" class="vpc-bg" stroke-width="0.5"/>
+<text class="th" x="40" y="50" style="fill:#0C447C">AWS VPC — us-west-2 (10.0.0.0/16)</text>
+
+<!-- Bastion -->
+<rect x="40" y="65" width="180" height="80" rx="12" class="bastion-bg" stroke-width="0.5"/>
+<text x="130" y="95" text-anchor="middle" class="th" style="fill:#2C2C2A">bastion</text>
+<text x="130" y="113" text-anchor="middle" class="ts" style="fill:#5F5E5A">Public subnet</text>
+<text x="130" y="129" text-anchor="middle" class="ts" style="fill:#5F5E5A">35.90.33.175</text>
+
+<!-- Private subnet container -->
+<rect x="40" y="165" width="600" height="435" rx="16" class="priv-bg" stroke-width="0.5"/>
+<text x="60" y="192" class="th" style="fill:#085041">Private subnet (10.0.10.0/24)</text>
+
+<!-- ipa01 -->
+<rect x="60" y="205" width="160" height="70" rx="8" class="ipa-bg" stroke-width="0.5"/>
+<text x="140" y="232" text-anchor="middle" class="th" style="fill:#26215C">ipa01</text>
+<text x="140" y="249" text-anchor="middle" class="ts" style="fill:#3C3489">FreeIPA 4.12.2</text>
+<text x="140" y="264" text-anchor="middle" class="ts" style="fill:#3C3489">LDAP · Kerberos · DNS</text>
+
+<!-- RKE2 cluster container -->
+<rect x="240" y="205" width="385" height="375" rx="12" class="rke-bg" stroke-width="0.5"/>
+<text x="432" y="230" text-anchor="middle" class="th" style="fill:#0C447C">RKE2 Kubernetes Cluster v1.30.2</text>
+
+<!-- k8s-cp01 -->
+<rect x="258" y="245" width="160" height="60" rx="8" class="cp-bg" stroke-width="0.5"/>
+<text x="338" y="270" text-anchor="middle" class="th" style="fill:#412402">k8s-cp01</text>
+<text x="338" y="287" text-anchor="middle" class="ts" style="fill:#633806">Control plane · etcd</text>
+
+<!-- k8s-w01 -->
+<rect x="258" y="325" width="160" height="100" rx="8" class="w01-bg" stroke-width="0.5"/>
+<text x="338" y="350" text-anchor="middle" class="th" style="fill:#4A1B0C">k8s-w01</text>
+<text x="338" y="367" text-anchor="middle" class="ts" style="fill:#712B13">GitLab CE 18.10.1</text>
+<text x="338" y="383" text-anchor="middle" class="ts" style="fill:#712B13">AWX 24.6.1</text>
+<text x="338" y="399" text-anchor="middle" class="ts" style="fill:#712B13">Falco · AIDE</text>
+
+<!-- k8s-w02 -->
+<rect x="446" y="245" width="162" height="320" rx="8" class="w02-bg" stroke-width="0.5"/>
+<text x="527" y="270" text-anchor="middle" class="th" style="fill:#173404">k8s-w02</text>
+<text x="527" y="289" text-anchor="middle" class="ts" style="fill:#27500A">Splunk 10.2.1</text>
+<text x="527" y="307" text-anchor="middle" class="ts" style="fill:#27500A">Prometheus + Grafana</text>
+<text x="527" y="325" text-anchor="middle" class="ts" style="fill:#27500A">NetBox v4.5.5</text>
+<text x="527" y="343" text-anchor="middle" class="ts" style="fill:#27500A">AWX postgres</text>
+<text x="527" y="361" text-anchor="middle" class="ts" style="fill:#27500A">Falco · AIDE</text>
+
+<!-- All nodes -->
+<rect x="258" y="445" width="160" height="50" rx="8" class="all-bg" stroke-width="0.5"/>
+<text x="338" y="468" text-anchor="middle" class="th" style="fill:#2C2C2A">All nodes</text>
+<text x="338" y="484" text-anchor="middle" class="ts" style="fill:#5F5E5A">Splunk UF · AIDE</text>
+
+<!-- Internet label and arrow -->
+<text x="155" y="14" class="ts" style="fill:#5F5E5A">Internet</text>
+<line x1="130" y1="18" x2="130" y2="63" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+
+<!-- Bastion to private -->
+<line x1="130" y1="145" x2="130" y2="163" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+
+<!-- ipa01 to RKE2 (LDAP) -->
+<line x1="220" y1="240" x2="238" y2="270" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+
+<!-- cp01 to w01 -->
+<line x1="338" y1="305" x2="338" y2="323" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+
+<!-- w01 to w02 -->
+<line x1="418" y1="375" x2="444" y2="375" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+
+<!-- nodes to all-nodes box -->
+<line x1="338" y1="425" x2="338" y2="443" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+<line x1="527" y1="565" x2="420" y2="487" class="arr" marker-end="url(#arrow)" stroke="#888"/>
+</svg>
