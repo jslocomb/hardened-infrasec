@@ -5,8 +5,8 @@ Upgrade RKE2 one node at a time. Always upgrade the control plane first.
 
 ## Pre-Upgrade Checklist
 - [ ] Check release notes: https://github.com/rancher/rke2/releases
-- [ ] Verify Longhorn volume health: all volumes green
-- [ ] Take Longhorn backups of critical PVCs
+- [ ] Verify PVC health: all PVCs bound and healthy
+- [ ] Backup critical PVC data before upgrade
 - [ ] Confirm kubectl access works
 
 ## Upgrade Control Plane
