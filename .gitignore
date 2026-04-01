@@ -43,3 +43,17 @@ charts/
 *.tgz
 terraform-aws/terraform.tfvars
 terraform-aws/terraform.tfstate*
+
+# Terraform state and vars (contain sensitive data)
+terraform-aws/terraform.tfstate
+terraform-aws/terraform.tfstate.backup
+terraform-aws/terraform.tfvars
+terraform-aws/.terraform/
+
+# Ansible vault
+ansible/inventory/group_vars/all.vault.yml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
