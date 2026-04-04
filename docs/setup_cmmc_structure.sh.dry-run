@@ -1,0 +1,108 @@
+jason@ag ~/Projects/homelab-k8s $ more scripts/setup_cmmc_structure.sh
+#!/usr/bin/env bash
+# setup_cmmc_structure.sh
+# Extracts ~/Downloads/gap/files.zip and installs files into the
+# homelab-k8s repo cmmc/ structure.
+#
+# Usage:
+#   chmod +x setup_cmmc_structure.sh
+#   ./setup_cmmc_structure.sh
+#   ./setup_cmmc_structure.sh --repo /Users/jason/Projects/homelab-k8s   # override repo path
+#   ./setup_cmmc_structure.sh --dry-run                      # preview only
+
+set -euo pipefail
+
+# ── Config ────────────────────────────────────────────────────────────────────
+ZIP_PATH="${HOME}/Downloads/gap/files.zip"
+REPO_ROOT="${HOME}/homelab-k8s"          # default; override with --repo
+DRY_RUN=false
+EXTRACT_TMP="${TMPDIR:-/tmp}/cmmc_extract_$$"
+
+# ── Arg parsing ───────────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)    REPO_ROOT="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    -h|--help)
+      grep '^#' "$0" | sed 's/^# \?//'
+      exit 0 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+jason@ag ~/Projects/homelab-k8s $ ./scripts/setup_cmmc_structure.sh --dry-run --repo /Users/jason/Projects/homelab-k8s
+
+── Preflight checks ──
+[+] Zip found: /Users/jason/Downloads/gap/files.zip
+[+] Repo root: /Users/jason/Projects/homelab-k8s
+[!] DRY RUN — no files will be written
+
+── Extracting zip ──
+[dry-run] unzip /Users/jason/Downloads/gap/files.zip -d /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2526
+
+── Creating cmmc/ directory structure ──
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/gap-report
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/ssp
+
+── Installing files ──
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2526/cmmc_gap_report.py → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/cmmc_gap_report.py
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2526/controls.yaml → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/controls.yaml
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2526/cmmc_gap_report.html → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports/cmmc_gap_report.html
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2526/cmmc_gap_report.pdf → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports/cmmc_gap_report.pdf
+
+── Writing supporting files ──
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/gap-report/requirements.txt
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/gap-report/Makefile
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/README.md
+
+── Updating .gitignore ──
+[dry-run] append to /Users/jason/Projects/homelab-k8s/.gitignore
+
+── Result ──
+
+Done. Next steps:
+  cd /Users/jason/Projects/homelab-k8s
+  git add cmmc/ .gitignore
+  git commit -m 'feat(cmmc): add gap report generator and control mappings'
+  git push
+jason@ag ~/Projects/homelab-k8s $
+jason@ag ~/Projects/homelab-k8s $ ./scripts/setup_cmmc_structure.sh --dry-run --repo /Users/jason/Projects/homelab-k8s
+
+── Preflight checks ──
+[+] Zip found: /Users/jason/Downloads/gap/files.zip
+[+] Repo root: /Users/jason/Projects/homelab-k8s
+[!] DRY RUN — no files will be written
+
+── Extracting zip ──
+[dry-run] unzip /Users/jason/Downloads/gap/files.zip -d /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2540
+
+── Creating cmmc/ directory structure ──
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/gap-report
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports
+[dry-run] mkdir -p /Users/jason/Projects/homelab-k8s/cmmc/ssp
+
+── Installing files ──
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2540/cmmc_gap_report.py → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/cmmc_gap_report.py
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2540/controls.yaml → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/controls.yaml
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2540/cmmc_gap_report.html → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports/cmmc_gap_report.html
+[dry-run] cp /var/folders/7t/gpy2sj5x42s35bv_z5xfqm4w0000gn/T//cmmc_extract_2540/cmmc_gap_report.pdf → /Users/jason/Projects/homelab-k8s/cmmc/gap-report/reports/cmmc_gap_report.pdf
+
+── Writing supporting files ──
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/gap-report/requirements.txt
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/gap-report/Makefile
+[dry-run] write /Users/jason/Projects/homelab-k8s/cmmc/README.md
+
+── Updating .gitignore ──
+[dry-run] append to /Users/jason/Projects/homelab-k8s/.gitignore
+
+── Result ──
+
+Done. Next steps:
+  cd /Users/jason/Projects/homelab-k8s
+  git add cmmc/ .gitignore
+  git commit -m 'feat(cmmc): add gap report generator and control mappings'
+  git push

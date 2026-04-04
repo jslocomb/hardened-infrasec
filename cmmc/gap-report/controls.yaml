@@ -1,0 +1,351 @@
+metadata:
+  organization: "Jason Slocomb Homelab / DoD Portfolio"
+  assessor: "Jason Slocomb"
+  assessment_date: "2026-04-03"
+  system_name: "AWS RKE2 Kubernetes Lab (CMMC L2 Demo)"
+  classification: "CUI Demo Environment"
+  version: "1.0"
+
+controls:
+  # ── ACCESS CONTROL ──────────────────────────────────────────────────────────
+  - id: "3.1.1"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Limit system access to authorized users"
+    requirement: "Limit information system access to authorized users, processes acting on behalf of authorized users, and devices (including other information systems)."
+    status: "Implemented"
+    implementation: "FreeIPA 4.12.2 provides centralized identity with LDAP-integrated Kubernetes RBAC and AWX authentication. All nodes require FreeIPA credentials. SSH key-only access enforced via PAM."
+    evidence:
+      - "FreeIPA LDAP integration config at /etc/sssd/sssd.conf"
+      - "AWX LDAP auth verified with test user jslocomb-test"
+      - "Kubernetes RBAC ClusterRoleBindings bound to FreeIPA groups"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AC.L2-3.1.1"
+
+  - id: "3.1.2"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Limit system access to types of transactions permitted"
+    requirement: "Limit information system access to the types of transactions and functions that authorized users are permitted to execute."
+    status: "Implemented"
+    implementation: "Kubernetes RBAC with least-privilege roles. AWX job templates scoped to specific inventories. FreeIPA HBAC rules restrict service access by group."
+    evidence:
+      - "Kubernetes Role/ClusterRole manifests in gitlab.homelab/k8s/rbac/"
+      - "AWX job templates with credential scoping"
+      - "FreeIPA HBAC rules: hbac-bastion-admins, hbac-k8s-ops"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AC.L2-3.1.2"
+
+  - id: "3.1.3"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Control CUI flow between systems"
+    requirement: "Control the flow of CUI in accordance with approved authorizations."
+    status: "Partial"
+    implementation: "VPC security groups restrict inter-node traffic. NAT gateway controls egress. No formal data flow documentation or automated enforcement beyond network controls."
+    evidence:
+      - "AWS Security Group rules (terraform/security_groups.tf)"
+      - "VPC Flow Logs enabled"
+    gaps:
+      - "No formal CUI data flow diagram documented"
+      - "No DLP controls — VPC perimeter only"
+      - "Inter-pod traffic not restricted by NetworkPolicy"
+    risk: "Medium"
+    remediation: "Create Kubernetes NetworkPolicies for pod-to-pod traffic isolation. Document CUI data flows in SSP. Evaluate OPA/Gatekeeper for policy enforcement."
+    cmmc_practice: "AC.L2-3.1.3"
+
+  - id: "3.1.5"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Employ principle of least privilege"
+    requirement: "Employ the principle of least privilege, including for specific security functions and privileged accounts."
+    status: "Implemented"
+    implementation: "Separate FreeIPA groups for k8s-admins, k8s-ops, bastion-users. AWX service accounts use scoped credentials. Root login disabled on all EC2 instances."
+    evidence:
+      - "FreeIPA group policy documentation"
+      - "AWX credential vault scoping"
+      - "EC2 user-data: PermitRootLogin no"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AC.L2-3.1.5"
+
+  - id: "3.1.6"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Use non-privileged accounts for non-security functions"
+    requirement: "Use non-privileged accounts or roles when accessing non-security functions."
+    status: "Partial"
+    implementation: "Standard user accounts created for daily operations. However, some administrative tasks still performed under accounts with broad sudo access."
+    evidence:
+      - "FreeIPA user/group separation"
+    gaps:
+      - "Sudo rules not fully scoped — broad wheel group access on ipa01"
+      - "No session recording for privileged sessions"
+    risk: "Medium"
+    remediation: "Implement granular sudoers rules via Ansible. Deploy session recording with tlog or Cockpit on privileged nodes. Remove wheel group blanket access."
+    cmmc_practice: "AC.L2-3.1.6"
+
+  - id: "3.1.12"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Monitor and control remote access sessions"
+    requirement: "Monitor and control remote access sessions."
+    status: "Implemented"
+    implementation: "All remote access via bastion host (SSH, port 22). Splunk Universal Forwarder ingests /var/log/secure on all nodes. SSH sessions logged to Splunk index=linux_secure."
+    evidence:
+      - "Splunk dashboard: SSH_Sessions_by_Host"
+      - "Bastion security group: 0.0.0.0/0:22 restricted to allowlisted IPs"
+      - "Splunk alert: multiple_failed_ssh_logins"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AC.L2-3.1.12"
+
+  - id: "3.1.20"
+    family: "AC"
+    family_name: "Access Control"
+    title: "Verify and control external system connections"
+    requirement: "Verify and control/limit connections to external information systems."
+    status: "Not Implemented"
+    implementation: ""
+    evidence: []
+    gaps:
+      - "No formal external system connection inventory"
+      - "No ISA/MOU documented for external connections"
+      - "GitLab mirroring to GitHub not formally authorized"
+    risk: "High"
+    remediation: "Document all external system connections (GitHub mirror, AWS APIs). Create ISA for GitHub mirror. Implement AWS SCPs to limit external API calls. Review VPC endpoints vs NAT gateway traffic."
+    cmmc_practice: "AC.L2-3.1.20"
+
+  # ── AUDIT & ACCOUNTABILITY ───────────────────────────────────────────────────
+  - id: "3.3.1"
+    family: "AU"
+    family_name: "Audit & Accountability"
+    title: "Create and retain system audit logs"
+    requirement: "Create and retain system audit logs and records to the extent needed to enable the monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity."
+    status: "Implemented"
+    implementation: "Splunk Enterprise 10.2.1 on k8s-w02 ingests audit, secure, syslog, and AIDE logs from all 5 nodes via Universal Forwarders. Retention set to 90 days."
+    evidence:
+      - "Splunk index=linux_audit — all nodes reporting"
+      - "Splunk index=linux_secure — auth events"
+      - "Splunk index=aide_alerts — integrity events"
+      - "UF deployment: /opt/splunkforwarder on each node"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AU.L2-3.3.1"
+
+  - id: "3.3.2"
+    family: "AU"
+    family_name: "Audit & Accountability"
+    title: "Ensure audit log actions can be traced to individual users"
+    requirement: "Ensure that the actions of individual system users can be uniquely traced to those users so they can be held accountable for their actions."
+    status: "Implemented"
+    implementation: "FreeIPA-authenticated sessions propagate username to auditd. Kubernetes audit log captures user identity from OIDC/LDAP claims. AWX records job execution by user account."
+    evidence:
+      - "auditd rules: /etc/audit/rules.d/cmmc.rules"
+      - "Kubernetes audit policy: /etc/rancher/rke2/config.yaml"
+      - "AWX activity stream — per-user job history"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "AU.L2-3.3.2"
+
+  - id: "3.3.5"
+    family: "AU"
+    family_name: "Audit & Accountability"
+    title: "Correlate audit record review and analysis processes"
+    requirement: "Correlate audit record review, analysis, and reporting processes for investigation and response to indications of unlawful, unauthorized, suspicious, or unusual activity."
+    status: "Partial"
+    implementation: "Splunk dashboards created for SSH events, AIDE alerts, and failed auth. Falco DaemonSet provides runtime anomaly detection. No formal SIEM correlation rules or playbooks documented."
+    evidence:
+      - "Splunk saved searches: ssh_anomaly, aide_change_detect"
+      - "Falco rules: /etc/falco/falco_rules.yaml"
+      - "Grafana dashboard: kube-prometheus-stack"
+    gaps:
+      - "No formal incident response playbooks"
+      - "Splunk correlation searches not mapped to MITRE ATT&CK"
+      - "No automated alerting to external channel (email/Slack)"
+    risk: "Medium"
+    remediation: "Create Splunk correlation searches mapped to ATT&CK TTPs. Document IR playbooks for top 5 alert types. Configure Splunk alert actions for email notification."
+    cmmc_practice: "AU.L2-3.3.5"
+
+  - id: "3.3.8"
+    family: "AU"
+    family_name: "Audit & Accountability"
+    title: "Protect audit information from unauthorized access"
+    requirement: "Protect audit information and audit tools from unauthorized access, modification, and deletion."
+    status: "Partial"
+    implementation: "Splunk on k8s-w02 — data in /opt/splunk/var/lib/splunk. Access restricted to splunk OS user. However, no separate storage volume and no WORM/immutability configured."
+    evidence:
+      - "Splunk data directory permissions: 700 splunk:splunk"
+      - "Security group: Splunk port 8000 restricted to bastion"
+    gaps:
+      - "Audit logs not stored on separate immutable volume"
+      - "No log forwarding to S3 with object lock for tamper protection"
+      - "Splunk admin credentials not rotated on schedule"
+    risk: "Medium"
+    remediation: "Configure Splunk SmartStore or S3 archival with S3 Object Lock (WORM). Separate EBS volume for Splunk data. Implement Splunk admin password rotation via AWX automation."
+    cmmc_practice: "AU.L2-3.3.8"
+
+  # ── CONFIGURATION MANAGEMENT ────────────────────────────────────────────────
+  - id: "3.4.1"
+    family: "CM"
+    family_name: "Configuration Management"
+    title: "Establish baseline configurations"
+    requirement: "Establish and maintain baseline configurations and inventories of organizational information systems (including hardware, software, firmware, and documentation) throughout the respective system development life cycles."
+    status: "Implemented"
+    implementation: "Terraform manages EC2 instance configurations. Ansible enforces OS hardening baseline (CIS-aligned). NetBox v4.5.5 maintains CMDB with all 5 lab devices. GitLab CE stores all IaC."
+    evidence:
+      - "Terraform state: s3://homelab-tfstate/lab.tfstate"
+      - "Ansible playbooks: gitlab.homelab/ansible/hardening/"
+      - "NetBox inventory: 5 devices, populated via API script"
+      - "GitHub mirror: github.com/jslocomb/homelab-k8s"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "CM.L2-3.4.1"
+
+  - id: "3.4.2"
+    family: "CM"
+    family_name: "Configuration Management"
+    title: "Establish configuration change control"
+    requirement: "Establish and implement configuration settings for information technology products employed in organizational information systems that reflect the most restrictive mode consistent with operational requirements."
+    status: "Implemented"
+    implementation: "GitLab MR workflow enforces peer review before merge to main. AWX executes Ansible playbooks for config changes. AIDE detects unauthorized file modifications."
+    evidence:
+      - "GitLab branch protection: main requires MR approval"
+      - "AIDE daily cron: 02:00 UTC on all nodes"
+      - "Splunk index=aide_alerts for deviation detection"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "CM.L2-3.4.2"
+
+  - id: "3.4.8"
+    family: "CM"
+    family_name: "Configuration Management"
+    title: "Apply deny-by-default policy for software"
+    requirement: "Apply deny-by-default (blacklisting) policy to prevent the use of unauthorized software."
+    status: "Not Implemented"
+    implementation: ""
+    evidence: []
+    gaps:
+      - "No application allowlisting implemented"
+      - "No AIDE rule specifically targeting new executable creation"
+      - "Package manager not restricted to approved repos beyond default"
+    risk: "High"
+    remediation: "Implement fapolicyd on Rocky Linux 9 for application allowlisting. Add AIDE rules monitoring /usr/local/bin and /tmp for new executables. Configure DNF to restrict to internal mirror or approved repos only."
+    cmmc_practice: "CM.L2-3.4.8"
+
+  # ── IDENTIFICATION & AUTHENTICATION ─────────────────────────────────────────
+  - id: "3.5.1"
+    family: "IA"
+    family_name: "Identification & Authentication"
+    title: "Identify information system users"
+    requirement: "Identify information system users, processes acting on behalf of users, and devices."
+    status: "Implemented"
+    implementation: "FreeIPA provides unique UIDs for all users. Kubernetes service accounts with unique identities. EC2 instances tagged with hostname and role in AWS."
+    evidence:
+      - "FreeIPA user directory: ipa user-find"
+      - "Kubernetes SA: kubectl get sa -A"
+      - "EC2 tags: Name, Role, Environment"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "IA.L2-3.5.1"
+
+  - id: "3.5.3"
+    family: "IA"
+    family_name: "Identification & Authentication"
+    title: "Use multifactor authentication"
+    requirement: "Use multifactor authentication for local and network access to privileged accounts and for network access to non-privileged accounts."
+    status: "Not Implemented"
+    implementation: ""
+    evidence: []
+    gaps:
+      - "SSH access is key-only — no MFA second factor"
+      - "FreeIPA OTP not configured"
+      - "AWX web UI accessible with single-factor (LDAP password)"
+      - "GitLab web UI — no MFA enforced"
+    risk: "High"
+    remediation: "Enable FreeIPA OTP (TOTP) for privileged accounts. Configure SSH to require both key + OTP via PAM. Enable MFA enforcement in GitLab admin settings. Consider AWS IAM Identity Center for console MFA."
+    cmmc_practice: "IA.L2-3.5.3"
+
+  - id: "3.5.7"
+    family: "IA"
+    family_name: "Identification & Authentication"
+    title: "Enforce minimum password complexity"
+    requirement: "Enforce a minimum password complexity and change requirements for passwords."
+    status: "Implemented"
+    implementation: "FreeIPA password policy: min 12 chars, complexity enabled, 90-day max age, 5 history. Enforced for all LDAP-authenticated services."
+    evidence:
+      - "FreeIPA password policy: ipa pwpolicy-show"
+      - "Policy: minlength=12, history=5, maxage=90, complexity=True"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "IA.L2-3.5.7"
+
+  # ── SYSTEM & INFORMATION INTEGRITY ──────────────────────────────────────────
+  - id: "3.14.1"
+    family: "SI"
+    family_name: "System & Information Integrity"
+    title: "Identify and remediate system flaws in a timely manner"
+    requirement: "Identify, report, and correct information and information system flaws in a timely manner."
+    status: "Partial"
+    implementation: "Rocky Linux 9 dnf-automatic configured for security updates. No formal vulnerability scanning tool deployed. No SLA for patch remediation documented."
+    evidence:
+      - "dnf-automatic: /etc/dnf/automatic.conf — apply_updates=yes"
+      - "GitLab dependency scanning — basic"
+    gaps:
+      - "No vulnerability scanner (OpenSCAP, Trivy, Wazuh)"
+      - "No container image scanning in CI pipeline"
+      - "No formal patch SLA documented"
+    risk: "Medium"
+    remediation: "Deploy Trivy in GitLab CI for container scanning. Run OpenSCAP SCAP Security Guide on all nodes. Document 30-day critical / 90-day high patch SLA in SSP."
+    cmmc_practice: "SI.L2-3.14.1"
+
+  - id: "3.14.2"
+    family: "SI"
+    family_name: "System & Information Integrity"
+    title: "Provide protection from malicious code"
+    requirement: "Provide protection from malicious code at appropriate locations within organizational information systems."
+    status: "Implemented"
+    implementation: "Falco 0.43.0 DaemonSet deployed with legacy eBPF driver (modern_ebpf avoided due to container plugin bug on Rocky 9). Rules cover shell spawning in containers, privilege escalation, and sensitive file access."
+    evidence:
+      - "Falco DaemonSet: kubectl get ds -n falco"
+      - "Falco rules: /etc/falco/falco_rules.yaml"
+      - "Falco alerts forwarded to Splunk index=falco_alerts"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "SI.L2-3.14.2"
+
+  - id: "3.14.6"
+    family: "SI"
+    family_name: "System & Information Integrity"
+    title: "Monitor systems to detect attacks and indicators of compromise"
+    requirement: "Monitor organizational information systems and communications to detect attacks and indicators of compromise."
+    status: "Implemented"
+    implementation: "Falco runtime detection + Splunk SIEM + AIDE file integrity monitoring provide layered detection. Grafana/kube-prometheus-stack monitors resource anomalies."
+    evidence:
+      - "Falco: container escape, privilege escalation rules"
+      - "AIDE: daily integrity checks, alerts to Splunk"
+      - "Splunk: ssh anomaly, failed auth correlation searches"
+      - "Grafana: CPU/memory/pod anomaly dashboards"
+    gaps: []
+    risk: "Low"
+    cmmc_practice: "SI.L2-3.14.6"
+
+  - id: "3.14.7"
+    family: "SI"
+    family_name: "System & Information Integrity"
+    title: "Identify unauthorized use of systems"
+    requirement: "Identify unauthorized use of organizational information systems."
+    status: "Partial"
+    implementation: "Splunk correlation searches flag failed logins and SSH from unknown IPs. No behavioral baseline or UBA capability."
+    evidence:
+      - "Splunk saved search: unauthorized_ssh_source"
+      - "Falco rule: Unexpected outbound connection"
+    gaps:
+      - "No user behavior analytics (UBA) baseline"
+      - "No automated response/quarantine on detection"
+      - "Network flow analysis limited to VPC Flow Logs — not correlated in Splunk"
+    risk: "Medium"
+    remediation: "Ingest VPC Flow Logs into Splunk. Build baseline of normal user activity patterns. Create AWX runbook for automated SSH block response via security group API call."
+    cmmc_practice: "SI.L2-3.14.7"

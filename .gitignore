@@ -57,3 +57,8 @@ ansible/inventory/group_vars/all.vault.yml
 __pycache__/
 *.pyc
 *.pyo
+
+# CMMC gap report — generated artifacts
+cmmc/gap-report/reports/*.html
+cmmc/gap-report/reports/*.pdf
+cmmc/gap-report/.venv/
