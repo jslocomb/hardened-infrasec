@@ -1,0 +1,134 @@
+---
+# ansible/roles/splunk_config/tasks/hec.yaml
+# Idempotent Splunk HEC configuration for Falco alert ingestion
+#
+# Expects vars:
+#   splunk_admin_user     — Splunk admin username (from AWX credential)
+#   splunk_admin_password — Splunk admin password (from AWX vault credential)
+#   splunk_bin            — Path to splunk binary (default: /opt/splunk/bin/splunk)
+#   falco_hec_token_name  — HEC token name to create (default: falco-token)
+#   falco_index_name      — Splunk index for Falco alerts (default: falco_alerts)
+#   falco_index_max_mb    — Max index size in MB (default: 5120)
+#
+# Usage:
+#   ansible-playbook ansible/splunk-config.yaml --tags hec
+#   Or via AWX job template targeting k8s-w02
+
+- name: Set defaults
+  ansible.builtin.set_fact:
+    splunk_bin: "{{ splunk_bin | default('/opt/splunk/bin/splunk') }}"
+    falco_hec_token_name: "{{ falco_hec_token_name | default('falco-token') }}"
+    falco_index_name: "{{ falco_index_name | default('falco_alerts') }}"
+    falco_index_max_mb: "{{ falco_index_max_mb | default(5120) }}"
+
+# ── Index ─────────────────────────────────────────────────────────────────────
+
+- name: Create falco_alerts index
+  ansible.builtin.command: >
+    {{ splunk_bin }} add index {{ falco_index_name }}
+    -maxTotalDataSizeMB {{ falco_index_max_mb }}
+    --run-as-root
+  become: true
+  register: index_create
+  changed_when: "'already exists' not in index_create.stderr"
+  failed_when:
+    - index_create.rc != 0
+    - "'already exists' not in index_create.stderr"
+
+- name: Log index creation result
+  ansible.builtin.debug:
+    msg: "Index {{ falco_index_name }}: {{ 'already existed' if 'already exists' in index_create.stderr else 'created' }}"
+
+# ── HEC ───────────────────────────────────────────────────────────────────────
+
+- name: Enable Splunk HEC
+  ansible.builtin.command: >
+    {{ splunk_bin }} http-event-collector enable
+    -uri https://localhost:8089
+    -auth {{ splunk_admin_user }}:{{ splunk_admin_password }}
+    --run-as-root
+  become: true
+  register: hec_enable
+  changed_when: "'already enabled' not in hec_enable.stdout"
+  no_log: true   # Suppress password from Ansible output
+
+- name: Create Falco HEC token
+  ansible.builtin.command: >
+    {{ splunk_bin }} http-event-collector create {{ falco_hec_token_name }}
+    -uri https://localhost:8089
+    -auth {{ splunk_admin_user }}:{{ splunk_admin_password }}
+    -index {{ falco_index_name }}
+    -sourcetype falco
+    --run-as-root
+  become: true
+  register: hec_token_create
+  changed_when: "'already exists' not in hec_token_create.stderr"
+  failed_when:
+    - hec_token_create.rc != 0
+    - "'already exists' not in hec_token_create.stderr"
+  no_log: true
+
+- name: Extract HEC token value
+  ansible.builtin.set_fact:
+    falco_hec_token_value: >-
+      {{ hec_token_create.stdout
+         | regex_search('token=([0-9a-f-]{36})', '\1')
+         | first
+         | default('') }}
+  when: hec_token_create.changed
+
+# ── Kubernetes Secret ─────────────────────────────────────────────────────────
+
+- name: Create falcosidekick Splunk token secret
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/rke2/rke2.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: falcosidekick-splunk-token
+        namespace: falco
+        labels:
+          app.kubernetes.io/managed-by: ansible
+          app.kubernetes.io/component: falco
+      stringData:
+        token: "{{ falco_hec_token_value }}"
+  when:
+    - hec_token_create.changed
+    - falco_hec_token_value | length > 0
+  no_log: true
+
+# ── Restart ───────────────────────────────────────────────────────────────────
+
+- name: Restart Splunk to apply HEC config
+  ansible.builtin.command: >
+    {{ splunk_bin }} restart --run-as-root
+  become: true
+  when: hec_enable.changed or index_create.changed
+  register: splunk_restart
+
+- name: Wait for Splunk web to come back up
+  ansible.builtin.uri:
+    url: "http://localhost:8000"
+    status_code: 200
+    timeout: 10
+  register: splunk_health
+  until: splunk_health.status == 200
+  retries: 18
+  delay: 10
+  when: splunk_restart is defined and splunk_restart.changed
+
+# ── Verify ────────────────────────────────────────────────────────────────────
+
+- name: Verify HEC health endpoint
+  ansible.builtin.uri:
+    url: "https://localhost:8088/services/collector/health"
+    validate_certs: false
+    status_code: 200
+  register: hec_health
+  failed_when: hec_health.status != 200
+
+- name: Log HEC health status
+  ansible.builtin.debug:
+    msg: "HEC health check: {{ hec_health.json | default({'text': 'no json'}) }}"

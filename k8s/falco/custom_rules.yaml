@@ -1,0 +1,117 @@
+# k8s/falco/custom_rules.yaml
+# Lab-specific Falco rule overrides and suppressions for homelab-k8s
+#
+# Mount via Helm values:
+#   --set-file falco.rules_file[0]=k8s/falco/custom_rules.yaml
+#
+# Or include in falcosidekick-values.yaml under falco.rules_file
+#
+# Ref: https://falco.org/docs/reference/rules/
+
+# ── Suppressions ─────────────────────────────────────────────────────────────
+# Known-good processes that fire noisy default rules in this environment.
+# Each suppression is scoped as tightly as possible — by container name and
+# parent process — to avoid masking genuine detections.
+
+- rule: Suppress Splunk UF startup shells
+  desc: >
+    Splunk Universal Forwarder spawns bash subshells during startup and log
+    rotation. Expected behavior; suppressed to reduce noise in falco_alerts.
+  condition: >
+    spawned_process
+    and container.name contains "splunk"
+    and proc.name in (bash, sh, dash)
+    and proc.pname = splunkd
+  output: >
+    Suppressed Splunk UF shell (pod=%container.name proc=%proc.name
+    parent=%proc.pname cmdline=%proc.cmdline)
+  priority: DEBUG
+  tags: [suppressed, splunk, homelab]
+
+- rule: Suppress RKE2 node agent shells
+  desc: >
+    RKE2 node agent and containerd spawn shells during node bootstrapping
+    and certificate rotation. Expected in a managed K8s environment.
+  condition: >
+    spawned_process
+    and container.name in (rke2-agent, containerd)
+    and proc.name in (bash, sh)
+    and proc.pname in (rke2, containerd-shim-runc-v2)
+  output: >
+    Suppressed RKE2 agent shell (container=%container.name proc=%proc.name
+    cmdline=%proc.cmdline)
+  priority: DEBUG
+  tags: [suppressed, rke2, homelab]
+
+- rule: Suppress AWX task runner shells
+  desc: >
+    AWX task pods execute Ansible playbooks which naturally spawn many shell
+    processes. Suppress at DEBUG — genuine escapes will still fire on other
+    rules (sensitive file access, network connections, etc).
+  condition: >
+    spawned_process
+    and k8s.ns.name = "awx"
+    and container.name contains "awx-task"
+    and proc.name in (bash, sh, python3, ansible)
+  output: >
+    Suppressed AWX task shell (pod=%k8s.pod.name proc=%proc.name
+    cmdline=%proc.cmdline)
+  priority: DEBUG
+  tags: [suppressed, awx, homelab]
+
+# ── Custom Detections ─────────────────────────────────────────────────────────
+# Rules specific to this environment that augment the default ruleset.
+
+- rule: Unexpected outbound connection from non-network namespace
+  desc: >
+    Detects outbound TCP connections from pods that should not be making
+    external network calls. Flags potential C2 or data exfiltration.
+    Excludes known-good namespaces (kube-system, falco, cert-manager).
+  condition: >
+    outbound
+    and not k8s.ns.name in (kube-system, falco, cert-manager, monitoring)
+    and not proc.name in (splunkd, splunk-forwarder, prometheus)
+    and fd.sport > 1024
+    and fd.dport in (4444, 1337, 8888, 9999, 31337)
+  output: >
+    Unexpected outbound connection (pod=%k8s.pod.name ns=%k8s.ns.name
+    proc=%proc.name src=%fd.sip:%fd.sport dst=%fd.dip:%fd.dport
+    image=%container.image.repository digest=%container.image.digest)
+  priority: WARNING
+  tags: [network, custom, homelab, cmmc_si_3_14_7]
+
+- rule: Sensitive file access in FreeIPA namespace
+  desc: >
+    Any access to credential or keytab files within the ipa namespace
+    outside of expected FreeIPA processes. Indicates potential credential theft.
+  condition: >
+    open_read
+    and k8s.ns.name = "ipa"
+    and (fd.name contains ".keytab" or fd.name contains "krb5.conf"
+         or fd.name contains "ca.crt" or fd.name contains "private")
+    and not proc.name in (httpd, ipa, named, krb5kdc, kadmind, sssd)
+  output: >
+    Sensitive FreeIPA file accessed (pod=%k8s.pod.name proc=%proc.name
+    file=%fd.name user=%user.name image=%container.image.repository)
+  priority: ERROR
+  tags: [credential_access, custom, homelab, cmmc_ia_3_5_1]
+
+- rule: New executable dropped in container at runtime
+  desc: >
+    Detects when a new executable file is written to a container filesystem
+    at runtime. Indicates potential malware staging or supply chain tampering.
+    Expected image mutations should happen at build time, not runtime.
+  condition: >
+    open_write
+    and container
+    and not k8s.ns.name in (kube-system, falco)
+    and (fd.name endswith ".sh" or fd.name endswith ".py"
+         or fd.name endswith ".elf" or fd.name endswith ".so")
+    and not proc.name in (ansible, pip3, dnf, rpm)
+    and not fd.name startswith "/tmp/ansible"
+  output: >
+    Executable written to container at runtime (pod=%k8s.pod.name
+    ns=%k8s.ns.name file=%fd.name proc=%proc.name user=%user.name
+    image=%container.image.repository digest=%container.image.digest)
+  priority: WARNING
+  tags: [execution, persistence, custom, homelab, cmmc_si_3_14_2]

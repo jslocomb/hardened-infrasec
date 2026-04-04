@@ -1,0 +1,63 @@
+# k8s/falco/falcosidekick-values.yaml
+# Falcosidekick configuration — Falco alert routing to Splunk HEC
+#
+# Deploy with:
+#   helm upgrade falco falcosecurity/falco \
+#     --namespace falco \
+#     --set driver.kind=ebpf \
+#     --set falcosidekick.enabled=true \
+#     --set falcoctl.artifact.install.enabled=false \
+#     --set falcoctl.artifact.follow.enabled=false \
+#     --set tty=true \
+#     --values k8s/falco/falcosidekick-values.yaml
+#
+# Ref: https://github.com/falcosecurity/charts/tree/master/charts/falcosidekick
+
+replicaCount: 2   # HA across worker nodes
+
+config:
+  splunk:
+    hostport: "https://k8s-w02.lab.internal:8088"
+    # Token injected from Kubernetes Secret — never hardcode here
+    # Create secret: kubectl create secret generic falcosidekick-splunk-token \
+    #   --namespace falco --from-literal=token='<HEC_TOKEN>'
+    existingSecret: "falcosidekick-splunk-token"
+    existingSecretKey: "token"
+    index: "falco_alerts"
+    sourcetype: "falco"
+    minimumpriority: "notice"
+    checkcert: false   # Lab Splunk uses self-signed cert
+
+  # Static fields appended to every forwarded alert
+  customfields:
+    environment: "homelab-k8s"
+    cluster: "rke2-us-west-2"
+    compliance_framework: "CMMC_L2"
+    cmmc_si_3_14_2: "malicious_code_protection"
+    cmmc_si_3_14_6: "monitor_for_attacks"
+    cmmc_si_3_14_7: "identify_unauthorized_use"
+
+  # Dynamic fields extracted from each Falco event at forward time
+  templatedfields:
+    k8s_pod_name:    '{{ index .OutputFields "k8s.pod.name" }}'
+    k8s_namespace:   '{{ index .OutputFields "k8s.ns.name" }}'
+    k8s_node_name:   '{{ index .OutputFields "k8s.node.name" }}'
+    container_image: '{{ index .OutputFields "container.image.repository" }}'
+    image_tag:       '{{ index .OutputFields "container.image.tag" }}'
+    image_digest:    '{{ index .OutputFields "container.image.digest" }}'
+    proc_name:       '{{ index .OutputFields "proc.name" }}'
+    proc_cmdline:    '{{ index .OutputFields "proc.cmdline" }}'
+    user_name:       '{{ index .OutputFields "user.name" }}'
+
+  # Log all forwarded events to stdout for kubectl logs debugging
+  stdout:
+    enabled: true
+    minimumpriority: "debug"
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"
