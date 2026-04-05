@@ -133,3 +133,39 @@
     image=%container.image.repository)
   priority: ERROR
   tags: [credential_access, custom, homelab, cmmc_ia_3_5_1]
+
+- rule: Suppress Grafana k8s-sidecar K8s API polling
+  desc: >
+    Grafana k8s-sidecar containers (grafana-sc-dashboard, grafana-sc-datasources)
+    poll the K8s API every 60 seconds to watch for ConfigMap changes.
+    Expected behavior for kube-prometheus-stack.
+  condition: >
+    outbound
+    and k8s.ns.name = "monitoring"
+    and container.name in (grafana-sc-dashboard, grafana-sc-datasources)
+    and proc.cmdline contains "sidecar.py"
+    and fd.rport = 443
+    and fd.dip = "10.43.0.1"
+  output: >
+    Suppressed Grafana sidecar K8s API poll (pod=%k8s.pod.name
+    container=%container.name proc=%proc.cmdline)
+  priority: DEBUG
+  tags: [suppressed, grafana, monitoring, homelab]
+
+- rule: Suppress Grafana k8s-sidecar K8s API polling
+  desc: >
+    Grafana k8s-sidecar containers (grafana-sc-dashboard, grafana-sc-datasources)
+    poll the K8s API every 60 seconds to watch for ConfigMap changes.
+    Expected behavior for kube-prometheus-stack.
+  condition: >
+    outbound
+    and k8s.ns.name = "monitoring"
+    and container.name in (grafana-sc-dashboard, grafana-sc-datasources)
+    and proc.cmdline contains "sidecar.py"
+    and fd.rport = 443
+    and fd.dip = "10.43.0.1"
+  output: >
+    Suppressed Grafana sidecar K8s API poll (pod=%k8s.pod.name
+    container=%container.name proc=%proc.cmdline)
+  priority: DEBUG
+  tags: [suppressed, grafana, monitoring, homelab]
