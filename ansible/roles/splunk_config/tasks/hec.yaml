@@ -2,24 +2,46 @@
 # ansible/roles/splunk_config/tasks/hec.yaml
 # Idempotent Splunk HEC configuration for Falco alert ingestion
 #
+# NOTE: The falco_alerts index and falco-token HEC token were created
+# manually during initial build on 2026-04-04. This playbook makes the
+# process repeatable for future environments or rebuilds.
+#
+# Manual steps taken during build (for reference):
+#   ssh k8s-w02 sudo /opt/splunk/bin/splunk add index falco_alerts \
+#     -maxTotalDataSizeMB 5120 --run-as-root
+#   ssh k8s-w02 sudo /opt/splunk/bin/splunk http-event-collector enable ...
+#   ssh k8s-w02 sudo /opt/splunk/bin/splunk http-event-collector create \
+#     falco-token -index falco_alerts -sourcetype falco --run-as-root
+#   Token stored in: pass Lab/falco/falco-token
+#
+# Firewall rule also applied manually:
+#   ssh k8s-w02 sudo firewall-cmd --permanent --add-port=8088/tcp
+#   ssh k8s-w02 sudo firewall-cmd --reload
+#
 # Expects vars:
-#   splunk_admin_user     — Splunk admin username (from AWX credential)
+#   splunk_admin_user     — Splunk admin username
 #   splunk_admin_password — Splunk admin password (from AWX vault credential)
 #   splunk_bin            — Path to splunk binary (default: /opt/splunk/bin/splunk)
-#   falco_hec_token_name  — HEC token name to create (default: falco-token)
 #   falco_index_name      — Splunk index for Falco alerts (default: falco_alerts)
 #   falco_index_max_mb    — Max index size in MB (default: 5120)
-#
-# Usage:
-#   ansible-playbook ansible/splunk-config.yaml --tags hec
-#   Or via AWX job template targeting k8s-w02
+#   falco_hec_token_name  — HEC token name (default: falco-token)
 
 - name: Set defaults
   ansible.builtin.set_fact:
     splunk_bin: "{{ splunk_bin | default('/opt/splunk/bin/splunk') }}"
-    falco_hec_token_name: "{{ falco_hec_token_name | default('falco-token') }}"
     falco_index_name: "{{ falco_index_name | default('falco_alerts') }}"
     falco_index_max_mb: "{{ falco_index_max_mb | default(5120) }}"
+    falco_hec_token_name: "{{ falco_hec_token_name | default('falco-token') }}"
+
+# ── Firewall ──────────────────────────────────────────────────────────────────
+
+- name: Open HEC port 8088 in firewalld
+  ansible.posix.firewalld:
+    port: 8088/tcp
+    permanent: true
+    state: enabled
+    immediate: true
+  become: true
 
 # ── Index ─────────────────────────────────────────────────────────────────────
 
@@ -35,7 +57,7 @@
     - index_create.rc != 0
     - "'already exists' not in index_create.stderr"
 
-- name: Log index creation result
+- name: Log index result
   ansible.builtin.debug:
     msg: "Index {{ falco_index_name }}: {{ 'already existed' if 'already exists' in index_create.stderr else 'created' }}"
 
@@ -50,7 +72,7 @@
   become: true
   register: hec_enable
   changed_when: "'already enabled' not in hec_enable.stdout"
-  no_log: true   # Suppress password from Ansible output
+  no_log: true
 
 - name: Create Falco HEC token
   ansible.builtin.command: >
@@ -68,47 +90,20 @@
     - "'already exists' not in hec_token_create.stderr"
   no_log: true
 
-- name: Extract HEC token value
-  ansible.builtin.set_fact:
-    falco_hec_token_value: >-
-      {{ hec_token_create.stdout
-         | regex_search('token=([0-9a-f-]{36})', '\1')
-         | first
-         | default('') }}
-  when: hec_token_create.changed
-
-# ── Kubernetes Secret ─────────────────────────────────────────────────────────
-
-- name: Create falcosidekick Splunk token secret
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/rke2/rke2.yaml
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: falcosidekick-splunk-token
-        namespace: falco
-        labels:
-          app.kubernetes.io/managed-by: ansible
-          app.kubernetes.io/component: falco
-      stringData:
-        token: "{{ falco_hec_token_value }}"
-  when:
-    - hec_token_create.changed
-    - falco_hec_token_value | length > 0
-  no_log: true
+- name: Display token creation result
+  ansible.builtin.debug:
+    msg: "HEC token {{ falco_hec_token_name }}: {{ 'already existed' if 'already exists' in hec_token_create.stderr else 'created — store token in pass Lab/falco/falco-token' }}"
 
 # ── Restart ───────────────────────────────────────────────────────────────────
 
-- name: Restart Splunk to apply HEC config
+- name: Restart Splunk if config changed
   ansible.builtin.command: >
     {{ splunk_bin }} restart --run-as-root
   become: true
   when: hec_enable.changed or index_create.changed
   register: splunk_restart
 
-- name: Wait for Splunk web to come back up
+- name: Wait for Splunk web to recover
   ansible.builtin.uri:
     url: "http://localhost:8000"
     status_code: 200
@@ -127,8 +122,14 @@
     validate_certs: false
     status_code: 200
   register: hec_health
-  failed_when: hec_health.status != 200
 
-- name: Log HEC health status
+- name: Log HEC health
   ansible.builtin.debug:
-    msg: "HEC health check: {{ hec_health.json | default({'text': 'no json'}) }}"
+    msg: "HEC health: {{ hec_health.json }}"
+
+- name: Remind operator to patch falcosidekick secret
+  ansible.builtin.debug:
+    msg: >
+      HEC configured. After helm upgrade, patch the falcosidekick secret:
+      SPLUNK_HOST must be https://{{ ansible_host }}:8088/services/collector/event
+      See docs/falco-splunk-integration.md Step 3 for the full patch command.

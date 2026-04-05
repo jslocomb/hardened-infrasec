@@ -1,9 +1,40 @@
+# k8s/falco/falcosidekick-values.yaml
+# Falcosidekick configuration — Falco alert routing to Splunk HEC
+#
+# IMPORTANT: The Helm chart renders these values into a Kubernetes secret
+# named falco-falcosidekick. After each helm upgrade, patch the secret
+# directly with the correct SPLUNK_HOST (full path required) and delete
+# the falcosidekick pods to pick up the new values. See docs/falco-splunk-
+# integration.md for the full patch command.
+#
+# SPLUNK_HOST must be the full endpoint URL including path:
+#   https://host:port/services/collector/event
+# Using just host:port results in 404 errors.
+#
+# Deploy with:
+#   scp k8s/falco/falcosidekick-values.yaml k8s-cp01:/tmp/
+#   ssh k8s-cp01 helm upgrade falco falcosecurity/falco \
+#     --namespace falco \
+#     --set driver.kind=ebpf \
+#     --set falcosidekick.enabled=true \
+#     --set falco.http_output.enabled=true \
+#     --set falco.http_output.url=http://falco-falcosidekick:2801 \
+#     --set falco.json_output=true \
+#     --set falcoctl.artifact.install.enabled=false \
+#     --set falcoctl.artifact.follow.enabled=false \
+#     --set tty=true \
+#     --values /tmp/falcosidekick-values.yaml
+
 replicaCount: 2
 
 config:
   splunk:
+    # Full HEC endpoint URL — path is required, falcosidekick does not append it
     host: "https://10.0.10.117:8088/services/collector/event"
-    token: "ecb425db-bc7e-416c-ba00-0acc5e6d9d71"
+    # Token stored here for reference — override via secret patch after upgrade
+    # See docs/falco-splunk-integration.md Step 3
+    # TODO: migrate to Sealed Secret
+    token: ""
     index: "falco_alerts"
     sourcetype: "falco"
     minimumpriority: "notice"
@@ -13,6 +44,9 @@ config:
     environment: "homelab-k8s"
     cluster: "rke2-us-west-2"
     compliance_framework: "CMMC_L2"
+    cmmc_si_3_14_2: "malicious_code_protection"
+    cmmc_si_3_14_6: "monitor_for_attacks"
+    cmmc_si_3_14_7: "identify_unauthorized_use"
 
   stdout:
     enabled: true
