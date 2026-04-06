@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: falcosidekick-splunk-token
+  namespace: falco
+spec:
+  encryptedData:
+    SPLUNK_TOKEN: AgDBdkaX5n1mf2awjffnQLgZ0nNCoL0G+lkF8Zav2WMNUroFwQvikY6twZdfSvh89x4a67D0q8iennekiub736Anb2FYSMN3ehphqRpW+6foq9BFZjXBnYsS4OGaBJlmhySeMPRSToWKvz7ep+SF++q2jwvCKY9BFWrOuP6hIw72vUWwWCCtdFuwjIgoJuFHjOb4fzrEB9d4AGYWP9KI8jrhTpIoRf1vHNdzF5lKm5vfyhDoHxxBphlFEGQuNQ8ui9juzSIDb5lwelf9NbLCnqp49JIOerjgLQTMjuYCX/3gfPc4HZRAxrQMmhHA/BmN5eQI8oef3WBSazU+4i+ygXzeFNV27nA3dD9S74zQgZbM+Hxs0Uf/aciwnLIAxMdv3EjKLsB28N+W9QiEXhO4Npcw2mGQwj5fhSZcffQXaukDddkvGTCD8Udxj2mMXffmZBdw2VGrEKx2VyssFgXsXyHRe6PH5Op4wIAKzsAZW6RL2h1KrRCAc+v5YRPkQQRSOnr2870Ha5CShQnDFnGmcMZLjuLte08Y8Lg4DEXSt2h2HpoL294+QU9tpRmVpllG4zq0/TLP52UBqnSWayGxRfA9myHKYUlg8ZqZCmFxR9N41AdOzvbM8pLOa8T25HJCYpomKLLYPR32hDGS5pAy7lhRyIEDUHLVvrODMC7IoGH4SlyCKhyoNOcDXKi+Qet0NpLdtlM3RLSBmfbySwHSObHtozvUJfGdFoK4Tmh/US7aKL7mEPw=
+  template:
+    metadata:
+      name: falcosidekick-splunk-token
+      namespace: falco

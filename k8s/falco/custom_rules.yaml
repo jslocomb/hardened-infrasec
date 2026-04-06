@@ -1,171 +1,54 @@
 # k8s/falco/custom_rules.yaml
-# Lab-specific Falco rule suppressions and custom detections
-#
-# Based on observed noise in homelab-k8s environment:
-#   - Splunk spawning Python subshells every 60s (quarantine_files.py,
-#     ssg_enable_modular_input.py, instrumentation.py)
-#   - AWX task pod polling K8s API every 60s via awx-manage run_dispatcher
-#
-# Deploy: included automatically via Helm if mounted as rules_file.
-# To apply manually after deploy:
-#   kubectl create configmap falco-custom-rules \
-#     --from-file=custom_rules.yaml \
-#     -n falco --dry-run=client -o yaml | kubectl apply -f -
+# Lab-specific Falco rule overrides and custom detections
+# Uses Falco override syntax to append conditions to default rules.
 
-# ── Suppressions ─────────────────────────────────────────────────────────────
+# ── Suppress known-good noise via rule overrides ──────────────────────────────
 
-- rule: Suppress Splunk UF and Enterprise shell spawns
-  desc: >
-    Splunk spawns bash/sh subshells every 60 seconds to run internal Python
-    scripts (quarantine_files.py, ssg_enable_modular_input.py,
-    instrumentation.py). This is expected Splunk behavior on k8s-w02.
-    Scoped tightly to splunkd parent on host network to avoid masking
-    genuine detections in containers.
+- rule: Run shell untrusted
+  condition: and not (not container and proc.pname = splunkd and proc.name in (sh, bash, dash))
+  override:
+    condition: append
+
+- rule: Contact K8S API Server From Container
   condition: >
-    spawned_process
-    and not container
-    and proc.pname = splunkd
-    and proc.name in (sh, bash, dash)
-    and (
-      proc.cmdline contains "quarantine_files.py"
-      or proc.cmdline contains "ssg_enable_modular_input.py"
-      or proc.cmdline contains "instrumentation.py"
-    )
-  output: >
-    Suppressed Splunk scheduled shell (proc=%proc.name
-    cmdline=%proc.cmdline parent=%proc.pname)
-  priority: DEBUG
-  tags: [suppressed, splunk, homelab]
-
-- rule: Suppress AWX task pod K8s API polling
-  desc: >
-    AWX task pod (awx-task) runs awx-manage run_dispatcher which polls the
-    K8s API every 60 seconds as part of normal job dispatch. Fires the
-    default "Contact K8S API Server From Container" rule continuously.
-    Suppressed at DEBUG — genuine unexpected API contact from other pods
-    will still fire.
-  condition: >
-    outbound
-    and k8s.ns.name = "awx"
-    and container.name = "awx-task"
-    and proc.name = "awx-manage"
-    and fd.rport = 443
-    and fd.dip = "10.43.0.1"
-  output: >
-    Suppressed AWX dispatcher K8s API poll (pod=%k8s.pod.name
-    proc=%proc.cmdline dst=%fd.dip:%fd.dport)
-  priority: DEBUG
-  tags: [suppressed, awx, homelab]
-
-- rule: Suppress RKE2 node agent shells
-  desc: >
-    RKE2 node agent and containerd spawn shells during node bootstrapping
-    and certificate rotation. Expected in a managed Kubernetes environment.
-  condition: >
-    spawned_process
-    and not container
-    and proc.pname in (rke2, containerd)
-    and proc.name in (bash, sh)
-  output: >
-    Suppressed RKE2 agent shell (proc=%proc.name
-    parent=%proc.pname cmdline=%proc.cmdline)
-  priority: DEBUG
-  tags: [suppressed, rke2, homelab]
+    and not (k8s.ns.name = "awx" and container.name = "awx-task" and proc.name = "awx-manage")
+    and not (k8s.ns.name = "monitoring" and container.name in (grafana-sc-dashboard, grafana-sc-datasources))
+  override:
+    condition: append
 
 # ── Custom Detections ─────────────────────────────────────────────────────────
 
 - rule: Unexpected outbound connection on suspicious port
-  desc: >
-    Detects outbound TCP connections to common C2 ports from any container.
-    Excludes known-good namespaces.
+  desc: Detects outbound TCP connections to common C2 ports from any container.
   condition: >
     outbound
     and container
     and not k8s.ns.name in (kube-system, falco, cert-manager, monitoring)
-    and fd.dport in (4444, 1337, 8888, 9999, 31337)
-  output: >
-    Suspicious outbound connection (pod=%k8s.pod.name ns=%k8s.ns.name
-    proc=%proc.name dst=%fd.dip:%fd.dport
-    image=%container.image.repository)
+    and fd.rport in (4444, 1337, 8888, 9999, 31337)
+  output: "Suspicious outbound connection pod=%k8s.pod.name ns=%k8s.ns.name proc=%proc.name image=%container.image.repository"
   priority: WARNING
   tags: [network, custom, homelab, cmmc_si_3_14_7]
 
 - rule: New executable written to container at runtime
-  desc: >
-    Detects script or binary files written to a container filesystem at
-    runtime. Image mutations should happen at build time only.
+  desc: Detects script or binary files written to a container filesystem at runtime.
   condition: >
     open_write
     and container
     and not k8s.ns.name in (kube-system, falco)
-    and (
-      fd.name endswith ".sh"
-      or fd.name endswith ".py"
-      or fd.name endswith ".elf"
-      or fd.name endswith ".so"
-    )
+    and (fd.name endswith ".sh" or fd.name endswith ".py" or fd.name endswith ".elf" or fd.name endswith ".so")
     and not proc.name in (ansible, pip3, dnf, rpm)
     and not fd.name startswith "/tmp/ansible"
-  output: >
-    Executable written to container at runtime (pod=%k8s.pod.name
-    ns=%k8s.ns.name file=%fd.name proc=%proc.name
-    image=%container.image.repository)
+  output: "Executable written to container at runtime pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name proc=%proc.name image=%container.image.repository"
   priority: WARNING
   tags: [execution, persistence, custom, homelab, cmmc_si_3_14_2]
 
 - rule: Sensitive file access in ipa namespace
-  desc: >
-    Access to keytab or credential files within the ipa namespace by
-    unexpected processes. Indicates potential credential theft.
+  desc: Access to keytab or credential files within the ipa namespace by unexpected processes.
   condition: >
     open_read
     and k8s.ns.name = "ipa"
-    and (
-      fd.name contains ".keytab"
-      or fd.name contains "krb5.conf"
-      or fd.name contains "ca.crt"
-      or fd.name contains "private"
-    )
+    and (fd.name contains ".keytab" or fd.name contains "krb5.conf" or fd.name contains "ca.crt" or fd.name contains "private")
     and not proc.name in (httpd, ipa, named, krb5kdc, kadmind, sssd)
-  output: >
-    Sensitive FreeIPA file accessed (pod=%k8s.pod.name
-    proc=%proc.name file=%fd.name user=%user.name
-    image=%container.image.repository)
+  output: "Sensitive FreeIPA file accessed pod=%k8s.pod.name proc=%proc.name file=%fd.name user=%user.name image=%container.image.repository"
   priority: ERROR
   tags: [credential_access, custom, homelab, cmmc_ia_3_5_1]
-
-- rule: Suppress Grafana k8s-sidecar K8s API polling
-  desc: >
-    Grafana k8s-sidecar containers (grafana-sc-dashboard, grafana-sc-datasources)
-    poll the K8s API every 60 seconds to watch for ConfigMap changes.
-    Expected behavior for kube-prometheus-stack.
-  condition: >
-    outbound
-    and k8s.ns.name = "monitoring"
-    and container.name in (grafana-sc-dashboard, grafana-sc-datasources)
-    and proc.cmdline contains "sidecar.py"
-    and fd.rport = 443
-    and fd.dip = "10.43.0.1"
-  output: >
-    Suppressed Grafana sidecar K8s API poll (pod=%k8s.pod.name
-    container=%container.name proc=%proc.cmdline)
-  priority: DEBUG
-  tags: [suppressed, grafana, monitoring, homelab]
-
-- rule: Suppress Grafana k8s-sidecar K8s API polling
-  desc: >
-    Grafana k8s-sidecar containers (grafana-sc-dashboard, grafana-sc-datasources)
-    poll the K8s API every 60 seconds to watch for ConfigMap changes.
-    Expected behavior for kube-prometheus-stack.
-  condition: >
-    outbound
-    and k8s.ns.name = "monitoring"
-    and container.name in (grafana-sc-dashboard, grafana-sc-datasources)
-    and proc.cmdline contains "sidecar.py"
-    and fd.rport = 443
-    and fd.dip = "10.43.0.1"
-  output: >
-    Suppressed Grafana sidecar K8s API poll (pod=%k8s.pod.name
-    container=%container.name proc=%proc.cmdline)
-  priority: DEBUG
-  tags: [suppressed, grafana, monitoring, homelab]
