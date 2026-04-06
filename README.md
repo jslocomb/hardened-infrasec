@@ -17,7 +17,8 @@ A production-grade security automation lab built on AWS, demonstrating enterpris
 
 ## Architecture Overview
 
-![Architecture Diagram](https://curious-wisp-e95465.netlify.app)
+![Architecture Diagram]
+https://curious-wisp-e95465.netlify.app
 
 ## Stack
 
