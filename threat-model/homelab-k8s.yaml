@@ -1,0 +1,375 @@
+---
+# STRIDE Threat Model: homelab-k8s
+# CMMC Level 2 / NIST 800-171 Alignment
+# System: RKE2 Kubernetes Cluster on AWS (us-west-2)
+
+metadata:
+  system: homelab-k8s
+  version: "1.0"
+  classification: CUI
+  author: jason.slocomb
+  date: "2025-01-01"
+  cmmc_level: 2
+  nist_revision: "Rev 2"
+
+assets:
+  - id: asset-001
+    name: RKE2 Control Plane (k8s-cp01)
+    type: compute
+    sensitivity: high
+    description: Kubernetes API server, etcd, scheduler
+
+  - id: asset-002
+    name: FreeIPA Identity Server (ipa01)
+    type: identity
+    sensitivity: critical
+    description: LDAP, Kerberos, DNS, PKI for all cluster workloads
+
+  - id: asset-003
+    name: etcd Datastore
+    type: datastore
+    sensitivity: critical
+    description: All cluster secrets, ConfigMaps, and state stored in etcd
+
+  - id: asset-004
+    name: AWX Automation Platform
+    type: service
+    sensitivity: high
+    description: Ansible automation controller with privileged cluster access
+
+  - id: asset-005
+    name: Splunk SIEM
+    type: service
+    sensitivity: high
+    description: Log aggregation, audit trail, security event correlation
+
+  - id: asset-006
+    name: NetBox CMDB
+    type: datastore
+    sensitivity: medium
+    description: Network and asset inventory, dynamic AWX inventory source
+
+  - id: asset-007
+    name: Bastion Host (35.90.33.175)
+    type: network
+    sensitivity: high
+    description: Public-facing SSH jump host, sole ingress point to VPC
+
+  - id: asset-008
+    name: Kubernetes Secrets
+    type: datastore
+    sensitivity: critical
+    description: Sealed Secrets, service account tokens, TLS certificates
+
+threats:
+  # SPOOFING
+  - id: T-001
+    stride_category: Spoofing
+    title: Impersonation of FreeIPA service account
+    description: >
+      An attacker compromises a service account credential stored in a K8s
+      Secret and authenticates to FreeIPA/LDAP as a privileged bind user,
+      gaining read access to all directory objects including group memberships.
+    affected_assets: [asset-002, asset-008]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 8.1
+    likelihood: medium
+    existing_controls:
+      - Sealed Secrets operator encrypts secrets at rest
+      - FreeIPA bind account has read-only LDAP permissions
+    mitigations:
+      - id: M-001
+        description: Rotate LDAP bind credentials quarterly via Ansible playbook
+        nist_control: IA-5
+        cmmc_practice: IA.L2-3.5.3
+        effort: low
+        priority: high
+      - id: M-002
+        description: Enable FreeIPA audit logging forwarded to Splunk
+        nist_control: AU-2
+        cmmc_practice: AU.L2-3.3.1
+        effort: medium
+        priority: high
+
+  - id: T-002
+    stride_category: Spoofing
+    title: Unauthorized kubectl access via stolen kubeconfig
+    description: >
+      Attacker exfiltrates a kubeconfig file from a developer workstation
+      and authenticates to the Kubernetes API server with cluster-admin
+      privileges, bypassing RBAC entirely.
+    affected_assets: [asset-001]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: None
+    user_interaction: Required
+    cvss_base: 7.5
+    likelihood: low
+    existing_controls:
+      - RKE2 API server not publicly exposed
+      - Bastion host required for access
+    mitigations:
+      - id: M-003
+        description: Enforce short-lived kubeconfig tokens via FreeIPA Kerberos
+        nist_control: IA-2
+        cmmc_practice: IA.L2-3.5.3
+        effort: high
+        priority: medium
+      - id: M-004
+        description: Enable API server audit logging, alert on anomalous access patterns
+        nist_control: AU-3
+        cmmc_practice: AU.L2-3.3.2
+        effort: medium
+        priority: high
+
+  # TAMPERING
+  - id: T-003
+    stride_category: Tampering
+    title: Malicious modification of Ansible playbooks in GitLab
+    description: >
+      Threat actor compromises GitLab credentials and pushes malicious
+      playbook code that executes arbitrary commands on managed nodes when
+      triggered by AWX. Supply chain attack vector.
+    affected_assets: [asset-004]
+    attack_vector: Network
+    attack_complexity: High
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 8.8
+    likelihood: medium
+    existing_controls:
+      - GitHub Actions CI with ansible-lint validation
+      - Branch protection on main
+    mitigations:
+      - id: M-005
+        description: Require signed commits (GPG) on protected branches
+        nist_control: SI-7
+        cmmc_practice: SI.L2-3.14.6
+        effort: low
+        priority: high
+      - id: M-006
+        description: Implement AWX approval workflow for prod playbook execution
+        nist_control: CM-5
+        cmmc_practice: CM.L2-3.4.5
+        effort: medium
+        priority: high
+
+  - id: T-004
+    stride_category: Tampering
+    title: etcd data manipulation via direct API access
+    description: >
+      Privileged container escape allows direct etcd client access,
+      enabling modification of cluster state, escalation of RBAC roles,
+      or injection of malicious workloads.
+    affected_assets: [asset-003]
+    attack_vector: Local
+    attack_complexity: High
+    privileges_required: High
+    user_interaction: None
+    cvss_base: 7.2
+    likelihood: low
+    existing_controls:
+      - etcd TLS mutual authentication
+      - etcd not exposed outside control plane
+    mitigations:
+      - id: M-007
+        description: Enable etcd encryption-at-rest for secrets resource type
+        nist_control: SC-28
+        cmmc_practice: SC.L2-3.13.16
+        effort: low
+        priority: high
+      - id: M-008
+        description: AIDE file integrity monitoring on etcd data directory
+        nist_control: SI-7
+        cmmc_practice: SI.L2-3.14.6
+        effort: low
+        priority: medium
+
+  # REPUDIATION
+  - id: T-005
+    stride_category: Repudiation
+    title: Unauthorized administrative action without audit trail
+    description: >
+      An insider threat performs destructive kubectl operations (delete
+      namespace, drain node) and there is insufficient audit logging to
+      attribute the action to a specific identity.
+    affected_assets: [asset-001, asset-005]
+    attack_vector: Local
+    attack_complexity: Low
+    privileges_required: High
+    user_interaction: None
+    cvss_base: 6.0
+    likelihood: low
+    existing_controls:
+      - Splunk receives some K8s logs
+      - AWX job history retained
+    mitigations:
+      - id: M-009
+        description: Forward K8s API audit log to Splunk with RequestResponse verbosity
+        nist_control: AU-12
+        cmmc_practice: AU.L2-3.3.1
+        effort: medium
+        priority: high
+      - id: M-010
+        description: Configure Splunk alert for high-impact kubectl verbs (delete, drain, cordon)
+        nist_control: AU-6
+        cmmc_practice: AU.L2-3.3.5
+        effort: low
+        priority: medium
+
+  # INFORMATION DISCLOSURE
+  - id: T-006
+    stride_category: Information Disclosure
+    title: Kubernetes Secret exposure via etcd backup
+    description: >
+      Unencrypted etcd snapshots stored in S3 expose all cluster secrets
+      including TLS private keys, service account tokens, and application
+      credentials to anyone with S3 read access to the backup bucket.
+    affected_assets: [asset-003, asset-008]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 8.8
+    likelihood: medium
+    existing_controls:
+      - S3 bucket not publicly accessible
+    mitigations:
+      - id: M-011
+        description: Enable S3 SSE-KMS on etcd backup bucket with dedicated CMK
+        nist_control: SC-28
+        cmmc_practice: SC.L2-3.13.16
+        effort: low
+        priority: critical
+      - id: M-012
+        description: Enforce etcd encryption-at-rest before any snapshots are taken
+        nist_control: SC-28
+        cmmc_practice: SC.L2-3.13.10
+        effort: low
+        priority: critical
+
+  - id: T-007
+    stride_category: Information Disclosure
+    title: Sensitive environment variables leaked in container logs
+    description: >
+      Application containers log environment variables during startup or
+      error conditions, exposing database passwords, API tokens, and
+      other secrets to anyone with log read access in Splunk.
+    affected_assets: [asset-005]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 6.5
+    likelihood: high
+    existing_controls:
+      - Splunk access restricted to admin users
+    mitigations:
+      - id: M-013
+        description: Deploy Splunk field masking transforms for credential patterns
+        nist_control: SC-28
+        cmmc_practice: SC.L2-3.13.16
+        effort: medium
+        priority: high
+      - id: M-014
+        description: Audit all Helm values files for secret references; migrate to SecretRef
+        nist_control: CM-6
+        cmmc_practice: CM.L2-3.4.2
+        effort: high
+        priority: medium
+
+  # DENIAL OF SERVICE
+  - id: T-008
+    stride_category: Denial of Service
+    title: Resource exhaustion via unrestricted pod scheduling
+    description: >
+      Malicious or misconfigured workload consumes all CPU/memory on a
+      worker node, causing eviction of security-critical pods (Splunk
+      forwarder, AIDE runner) and creating blind spots in monitoring.
+    affected_assets: [asset-005]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 6.5
+    likelihood: medium
+    existing_controls:
+      - Kubernetes resource requests set on most workloads
+    mitigations:
+      - id: M-015
+        description: Enforce LimitRange and ResourceQuota on all non-system namespaces
+        nist_control: SC-6
+        cmmc_practice: SC.L2-3.13.9
+        effort: low
+        priority: high
+      - id: M-016
+        description: Set PriorityClass=system-critical on Splunk forwarder DaemonSet
+        nist_control: SC-6
+        cmmc_practice: SC.L2-3.13.9
+        effort: low
+        priority: medium
+
+  # ELEVATION OF PRIVILEGE
+  - id: T-009
+    stride_category: Elevation of Privilege
+    title: Container escape via privileged pod
+    description: >
+      Workload deployed with privileged:true or hostPID:true allows
+      container escape to the underlying EC2 host, gaining root access
+      to the node and access to all secrets on that node including
+      kubelet credentials and other pod secrets.
+    affected_assets: [asset-001]
+    attack_vector: Local
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 9.0
+    likelihood: medium
+    existing_controls:
+      - No intentionally privileged workloads deployed
+    mitigations:
+      - id: M-017
+        description: Deploy OPA Gatekeeper or Kyverno policy denying privileged containers
+        nist_control: CM-7
+        cmmc_practice: CM.L2-3.4.6
+        effort: medium
+        priority: critical
+      - id: M-018
+        description: Enable Pod Security Admission (restricted profile) cluster-wide
+        nist_control: CM-7
+        cmmc_practice: CM.L2-3.4.7
+        effort: low
+        priority: critical
+
+  - id: T-010
+    stride_category: Elevation of Privilege
+    title: RBAC misconfiguration granting cluster-admin via wildcard
+    description: >
+      ClusterRoleBinding with overly broad wildcard verbs (* on *)
+      inadvertently grants a service account cluster-admin equivalent
+      permissions, enabling full cluster takeover from a compromised pod.
+    affected_assets: [asset-001, asset-008]
+    attack_vector: Network
+    attack_complexity: Low
+    privileges_required: Low
+    user_interaction: None
+    cvss_base: 9.8
+    likelihood: low
+    existing_controls:
+      - RBAC enabled on RKE2
+    mitigations:
+      - id: M-019
+        description: Run rbac-tool audit weekly; alert on ClusterRoleBindings with wildcards
+        nist_control: AC-6
+        cmmc_practice: AC.L2-3.1.6
+        effort: low
+        priority: critical
+      - id: M-020
+        description: Integrate rbac-tool into GitHub Actions CI pipeline as a gate
+        nist_control: AC-6
+        cmmc_practice: AC.L2-3.1.5
+        effort: medium
+        priority: high
