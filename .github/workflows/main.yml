@@ -1,0 +1,102 @@
+name: STRIDE Threat Model Analysis
+
+on:
+  push:
+    paths:
+      - 'threat-model/**'
+      - 'tools/stride_threatmodel.py'
+  pull_request:
+    paths:
+      - 'threat-model/**'
+      - 'tools/stride_threatmodel.py'
+  workflow_dispatch:
+
+jobs:
+  threat-model:
+    name: Risk Register Generation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml pytest
+
+      - name: Run unit tests
+        run: python -m pytest tools/tests/ -v --tb=short
+
+      - name: Generate risk register (all formats)
+        run: |
+          python tools/stride_threatmodel.py \
+            threat-model/homelab-k8s.yaml \
+            --no-color \
+            --output all \
+            --out-prefix threat-model/risk_register \
+            --cmmc-coverage
+
+      - name: Assert no CRITICAL risks without mitigations
+        run: |
+          python - <<'EOF'
+          import json, sys
+          with open("threat-model/risk_register.json") as f:
+              data = json.load(f)
+          failures = []
+          for entry in data["risk_register"]:
+              if entry["risk_level"] == "CRITICAL" and len(entry["mitigations"]) == 0:
+                  failures.append(entry["threat_id"])
+          if failures:
+              print(f"FAIL: CRITICAL threats with no mitigations: {failures}")
+              sys.exit(1)
+          print(f"PASS: All CRITICAL threats have mitigations")
+          EOF
+
+      - name: Upload risk register artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: risk-register-${{ github.run_number }}
+          path: |
+            threat-model/risk_register.json
+            threat-model/risk_register.csv
+            threat-model/risk_register.md
+          retention-days: 90
+
+      - name: Comment risk summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const register = JSON.parse(fs.readFileSync('threat-model/risk_register.json'));
+            const threats = register.risk_register;
+
+            const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+            threats.forEach(t => counts[t.risk_level]++);
+
+            const top5 = threats.slice(0, 5).map(t =>
+              `| #${t.rank} | \`${t.threat_id}\` | ${t.stride_category} | ${t.title} | **${t.risk_level}** (${t.risk_score}) |`
+            ).join('\n');
+
+            const body = `## 🔐 STRIDE Risk Register Update
+
+            **Risk Distribution:** 🔴 ${counts.CRITICAL} CRITICAL  🟡 ${counts.HIGH} HIGH  🔵 ${counts.MEDIUM} MEDIUM  🟢 ${counts.LOW} LOW
+
+            ### Top 5 Risks
+
+            | Rank | ID | Category | Title | Risk Level |
+            |------|----|---------|----|-----------|
+            ${top5}
+
+            _Full register available in workflow artifacts_`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
