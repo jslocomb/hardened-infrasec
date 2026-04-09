@@ -13,6 +13,9 @@ A production-grade security automation lab built on AWS, demonstrating enterpris
 **Platform:** AWS us-west-2 | Rocky Linux 9.7 | RKE2 Kubernetes  
 **Target Roles:** DoD Contractor IT/Security Engineer, DevSecOps, AWS GovCloud (IL2/IL4)
 
+## 📹 Demo Video
+[Watch the full stack walkthrough →](https://www.loom.com/share/0adf554e3ddb41ff899879d20068500d)
+
 ---
 
 ## Architecture Overview
