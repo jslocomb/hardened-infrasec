@@ -14,7 +14,8 @@ A production-grade security automation lab built on AWS, demonstrating enterpris
 **Target Roles:** DoD Contractor IT/Security Engineer, DevSecOps, AWS GovCloud (IL2/IL4)
 
 ## 📹 Demo Video
-[Watch the full stack walkthrough →](https://www.loom.com/share/0adf554e3ddb41ff899879d20068500d)
+[Watch the full stack walkthrough HD →](https://www.loom.com/share/0adf554e3ddb41ff899879d20068500d)
+[Watch the full stack walkthrough SD →](https://youtu.be/Rtiy-8gzGpc)
 
 ---
 
