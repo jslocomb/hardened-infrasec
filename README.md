@@ -1,4 +1,4 @@
-# homelab-k8s — CMMC Level 2 Security Automation Portfolio
+# hardened-infrasec — CMMC Level 2 Security Automation Portfolio
 
 ![AWS](https://img.shields.io/badge/AWS-us--west--2-FF9900?style=flat&logo=amazon-aws&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/RKE2-v1.30.2-326CE5?style=flat&logo=kubernetes&logoColor=white)
@@ -14,8 +14,7 @@ A production-grade security automation lab built on AWS, demonstrating enterpris
 **Target Roles:** DoD Contractor IT/Security Engineer, DevSecOps, AWS GovCloud (IL2/IL4)
 
 ## 📹 Demo Video
-[Watch the full stack walkthrough HD →](https://www.loom.com/share/0adf554e3ddb41ff899879d20068500d)
-[Watch the full stack walkthrough SD →](https://youtu.be/Rtiy-8gzGpc)
+[Watch the full stack walkthrough →](https://youtu.be/Rtiy-8gzGpc)
 
 ---
 
@@ -186,7 +185,7 @@ This lab is designed to transfer directly to AWS GovCloud:
 ## Repository Structure
 
 ```
-homelab-k8s/
+hardened-infrasec/
 ├── terraform-aws/          # AWS infrastructure as code
 ├── ansible/
 │   ├── inventory/          # Host inventory and group vars
