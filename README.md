@@ -200,3 +200,6 @@ hardened-infrasec/
 └── prometheus-values.yaml  # Grafana/Prometheus Helm values
 ```
 
+
+## Related work
+- [hardened-k8s](https://github.com/jslocomb/hardened-k8s): hands-on Kubernetes lab (k0s, troubleshooting scenarios, Ansible-built node) on the path to the CKA.
